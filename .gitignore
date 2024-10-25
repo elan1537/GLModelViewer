@@ -1,0 +1,11 @@
+build
+*.pdf
+
+mesh-data
+
+# 라이브러리
+freeglut
+glew
+
+.vscode
+
