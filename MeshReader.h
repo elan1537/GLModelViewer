@@ -3,17 +3,22 @@
 #include <sstream>
 #include <vector>
 
+#include "textfile.h"
+#include "Angel.h"
+
 #include <initializer_list>  // 초기화 리스트를 사용하기 위한 헤더 추가
 
 using namespace std;
 
 struct Vertex {
-    float x, y, z;
+    vec3 position;
+    vec3 normal = vec3(0.0f, 0.0f, 0.0f);
 };
 
 struct Face {
     int v1, v2, v3;
 };
+
 
 class MeshReader {
     public:
@@ -31,4 +36,5 @@ class MeshReader {
         vector<Vertex> verticesList;
         vector<Face> facesList;
         void parsingMesh(string meshCode);
+        void calculateVertexNormals();
 };

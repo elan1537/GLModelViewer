@@ -1,11 +1,11 @@
 #include "MeshReader.h"
-#include "textfile.h"
 
 
 MeshReader::MeshReader(const char *filePath)
 {
     string meshCode = readFile(filePath);
     parsingMesh(meshCode);
+    calculateVertexNormals();
 };
 
 Vertex MeshReader::getVertex(int index) {
@@ -49,14 +49,13 @@ void MeshReader::printFaces() {
 };
 
 void MeshReader::printVertex(Vertex vertex) {
-    cout << "Vertex: " << vertex.x << " " << vertex.y << " " << vertex.z << endl;
+    cout << "Vertex: " << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << endl;
+    cout << "Normal: " << vertex.normal.x << " " << vertex.normal.y << " " << vertex.normal.z << endl;
 };
 
 void MeshReader::printFace(Face face) {
     cout << "Face: " << face.v1 << " " << face.v2 << " " << face.v3 << endl;
 }
-
-
 
 void MeshReader::parsingMesh(std::string meshCode) {
     istringstream meshFile(meshCode);
@@ -84,7 +83,7 @@ void MeshReader::parsingMesh(std::string meshCode) {
         
         Vertex vertex;
         istringstream vertexLine(line);
-        vertexLine >> vertex.x >> vertex.y >> vertex.z;
+        vertexLine >> vertex.position.x >> vertex.position.y >> vertex.position.z;
         MeshReader::verticesList.push_back(vertex);
     }
 
@@ -97,3 +96,25 @@ void MeshReader::parsingMesh(std::string meshCode) {
         MeshReader::facesList.push_back(face);
     }
 };
+
+void MeshReader::calculateVertexNormals() {
+    for (const auto& face: this->facesList) {
+        mat3 vertices = mat3(
+            this->verticesList[face.v1].position,
+            this->verticesList[face.v2].position,
+            this->verticesList[face.v3].position
+        );
+
+        vec3 e1 = vertices[1] - vertices[0];
+        vec3 e2 = vertices[2] - vertices[0];
+        vec3 normal = normalize(cross(e1, e2));
+
+        this->verticesList[face.v1].normal += normal;
+        this->verticesList[face.v2].normal += normal;
+        this->verticesList[face.v3].normal += normal;
+    }
+
+    for (auto& vertex: this->verticesList) {
+        vertex.normal = normalize(vertex.normal);
+    }
+}
