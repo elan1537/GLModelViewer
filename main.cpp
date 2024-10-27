@@ -34,6 +34,9 @@ vec3 cameraPos = vec3(0.0f, 0.0f, 3.0f);
 vec3 cameraFront = vec3(0.0f, 0.0f, -1.0f);
 vec3 cameraUp = vec3(0.0f, 1.0f, 0.0f);
 
+GLuint lightVAO;
+vec3 lightPos(1.2f, 1.0f, 2.0f);
+
 
 #ifdef __APPLE__
 void initGLFW() {
@@ -85,6 +88,8 @@ void renderScene(InstanceManager instanceManager)
 	GLuint projectionLoc = glGetUniformLocation(shaderProgram, "u_projection");
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projectionMatrix[0][0]);
 
+	glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, cameraPos);
+
 #ifdef __APPLE__
     glfwSwapBuffers(glfwGetCurrentContext());
 #elif defined(_WIN32)
@@ -117,13 +122,17 @@ int main(int argc, char **argv)
 	shaderProgram = createShaderProgram("../vshader.vert", "../fshader.frag");
 	glUseProgram(shaderProgram); // Shader Program을 사용해야한다고 생성 후 반드시 명시해야함
 
+	glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, vec3(1.0f, 1.0f, 1.0f));
+	glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, vec3(1.0f, 0.5f, 0.31f));
+	glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, lightPos);
+
     MeshReader bunnyReader("../mesh-data/bunny.off");
 	MeshReader dragonReader("../mesh-data/dragon-full.off");
 
 	InstanceManager manager(shaderProgram);
 	
-	Object* obj_bunny = new Object(&bunnyReader, vec3(0.0f, 0.0f, -0.5f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
-	Object* obj_dragon = new Object(&dragonReader, vec3(0.0f, 0.0f, 0.5f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	Object* obj_bunny = new Object(&bunnyReader, vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	Object* obj_dragon = new Object(&dragonReader, vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 
 	manager.addObject(obj_bunny);
 	manager.addObject(obj_dragon);
