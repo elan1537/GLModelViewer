@@ -14,20 +14,43 @@
     #include <GL/glew.h>
 #endif
 
-
 #include "MeshReader.h"
 #include "system.h"
+#include "Object.h"
+#include "InstanceManager.h"
 
 #include "textfile.h"
 #include "Angel.h"
 
-// Global variables for VAO, VBO, EBO, etc.
-GLuint VAO, VBO, EBO;
 GLuint shaderProgram;
 std::vector<Vertex> vertices;
 std::vector<Face> faces;
 int windowHeight = 1280;
 int windowWidth = 960;
+
+float moving_scale = 0.05;
+
+GLuint VAO, VBO, EBO;
+
+vec3 cameraPos = vec3(0.0f, 0.0f, 3.0f);
+vec3 cameraFront = vec3(0.0f, 0.0f, -1.0f);
+vec3 cameraUp = vec3(0.0f, 1.0f, 0.0f);
+
+void setupBuffer() {
+	glGenVertexArrays(1, &VAO);
+	glBindVertexArray(VAO);
+
+	glGenBuffers(1, &VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+	glGenBuffers(1, &EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(Face), &faces[0], GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glBindVertexArray(0);
+}
 
 
 #ifdef __APPLE__
@@ -41,6 +64,18 @@ void initGLFW() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 }
+
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+	}
+
+	if(key == GLFW_KEY_W) cameraPos += moving_scale * cameraFront;
+	if(key == GLFW_KEY_S) cameraPos -= moving_scale * cameraFront;
+	if(key == GLFW_KEY_A) cameraPos -= normalize(cross(cameraFront, cameraUp)) * moving_scale;
+	if(key == GLFW_KEY_D) cameraPos += normalize(cross(cameraFront, cameraUp)) * moving_scale;
+}
 #elif defined(_WIN32)
 void initGLUT(int argc, char** argv) {
 	glutInit(&argc, argv);
@@ -51,15 +86,22 @@ void initGLUT(int argc, char** argv) {
 #endif
 
 // Function to handle rendering
-void renderScene(void)
+void renderScene(InstanceManager instanceManager) 
 {
 	glEnable(GL_DEPTH_TEST);
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Bind the VAO and draw the elements
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, faces.size() * 3, GL_UNSIGNED_INT, 0);
+	mat4 projectionMatrix = system::perspective(system::toRadian(45.0f), (float)windowHeight / (float)windowWidth, 0.1f, 100.0f);
+	mat4 viewMatrix = system::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+
+	instanceManager.renderAll(viewMatrix, projectionMatrix);
+
+	GLuint viewLoc = glGetUniformLocation(shaderProgram, "u_view");
+	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &viewMatrix[0][0]);
+
+	GLuint projectionLoc = glGetUniformLocation(shaderProgram, "u_projection");
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projectionMatrix[0][0]);
 
 #ifdef __APPLE__
     glfwSwapBuffers(glfwGetCurrentContext());
@@ -79,6 +121,8 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	glfwMakeContextCurrent(window);
+
+	glfwSetKeyCallback(window, key_callback);
 #elif defined(_WIN32)
 	initGLUT(argc, argv);
 #endif
@@ -91,49 +135,26 @@ int main(int argc, char **argv)
 	shaderProgram = createShaderProgram("../vshader.vert", "../fshader.frag");
 	glUseProgram(shaderProgram); // Shader Program을 사용해야한다고 생성 후 반드시 명시해야함
 
-	 // Setting up VAO, VBO, EBO
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
+	setupBuffer();
 
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    MeshReader bunnyReader("../mesh-data/bunny.off");
+	MeshReader dragonReader("../mesh-data/dragon-full.off");
 
-	glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	InstanceManager manager(shaderProgram);
+	
+	Object* obj_bunny = new Object(&bunnyReader, vec3(0.0f, 0.0f, -0.5f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	Object* obj_dragon = new Object(&dragonReader, vec3(0.0f, 0.0f, 0.5f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 
-	glm::mat4 trans = glm::mat4(1.0f);
-	glm::mat4 view = system::lookAt(glm::vec3(0.0f, -2.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	glm::mat4 projection = system::perspective(45.0f, (float)windowHeight / (float)windowWidth, 0.1f, 100.0f);
-
-	GLuint transformLoc = glGetUniformLocation(shaderProgram, "u_Transform");
-	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
-
-	GLuint viewLoc = glGetUniformLocation(shaderProgram, "u_View");
-	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-
-	GLuint projectionLoc = glGetUniformLocation(shaderProgram, "u_Projection");
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-	cout << "viewLoc: " << viewLoc << endl;
-	cout << "projectionLoc: " << projectionLoc << endl;
-	cout << "transformLoc: " << transformLoc << endl;
-
-    MeshReader meshReader("../mesh-data/bunny.off");
-    vertices = meshReader.getVertices();
-    faces = meshReader.getFaces();
-
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);    
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(Face), &faces[0], GL_STATIC_DRAW);
+	manager.addObject(obj_bunny);
+	manager.addObject(obj_dragon);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
     glEnableVertexAttribArray(0);
 
-
 #ifdef __APPLE__
 	while (!glfwWindowShouldClose(window))
 	{
-		renderScene();
-		
+		renderScene(manager);
 		glfwPollEvents();
 	}
 	glfwTerminate();

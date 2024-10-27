@@ -1,3 +1,6 @@
+#ifndef MESHREADER_H
+#define MESHREADER_H
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -38,3 +41,4 @@ class MeshReader {
         void parsingMesh(string meshCode);
         void calculateVertexNormals();
 };
+#endif 
