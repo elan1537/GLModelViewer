@@ -12,3 +12,10 @@ cmake ..
 make assign_1
 ./assign_1
 ```
+
+### Todo
+- [x] Triangle Mesh Viewer with Vertex Normal
+- [ ] View point switch (Ortho <-> Perspective)
+- [x] Phong illumination with Shader
+- [ ] Changing shading params using Keyboard interaction
+- [ ] Virtual Trackball
