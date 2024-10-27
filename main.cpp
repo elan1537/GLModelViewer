@@ -30,27 +30,9 @@ int windowWidth = 960;
 
 float moving_scale = 0.05;
 
-GLuint VAO, VBO, EBO;
-
 vec3 cameraPos = vec3(0.0f, 0.0f, 3.0f);
 vec3 cameraFront = vec3(0.0f, 0.0f, -1.0f);
 vec3 cameraUp = vec3(0.0f, 1.0f, 0.0f);
-
-void setupBuffer() {
-	glGenVertexArrays(1, &VAO);
-	glBindVertexArray(VAO);
-
-	glGenBuffers(1, &VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-	glGenBuffers(1, &EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(Face), &faces[0], GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glBindVertexArray(0);
-}
 
 
 #ifdef __APPLE__
@@ -134,8 +116,6 @@ int main(int argc, char **argv)
 
 	shaderProgram = createShaderProgram("../vshader.vert", "../fshader.frag");
 	glUseProgram(shaderProgram); // Shader Program을 사용해야한다고 생성 후 반드시 명시해야함
-
-	setupBuffer();
 
     MeshReader bunnyReader("../mesh-data/bunny.off");
 	MeshReader dragonReader("../mesh-data/dragon-full.off");
