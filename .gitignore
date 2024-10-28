@@ -1,4 +1,7 @@
 build
+
+build_win
+out
 *.pdf
 
 mesh-data
@@ -8,4 +11,4 @@ freeglut
 glew
 
 .vscode
-
+.vs

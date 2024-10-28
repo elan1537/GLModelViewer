@@ -1,17 +1,13 @@
 #include <iostream>
 #include <vector>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
 #ifdef __APPLE__  // macOS에서 GLFW 사용
     #define GLFW_INCLUDE_NONE
     #include <GLFW/glfw3.h>
     #include <GL/glew.h>
 #elif defined(_WIN32)  // Windows에서 freeglut 사용
-    #include <GL/glut.h>
-    #include <GL/glew.h>
+#include <GL/glew.h>
+#include <GL/freeglut.h>
 #endif
 
 #include "MeshReader.h"
@@ -37,6 +33,23 @@ vec3 cameraUp = vec3(0.0f, 1.0f, 0.0f);
 GLuint lightVAO;
 vec3 lightPos(1.2f, 1.0f, 2.0f);
 
+InstanceManager *manager;
+
+int lastX, lastY;
+
+vec3 mapToSphere(float x, float y) {
+	float nx = (2.0 * x - windowWidth) / windowWidth;
+	float ny = (windowHeight - 2.0 * y) / windowHeight;
+
+	float length = nx * nx + ny * ny;
+	vec3 point;
+
+	if (length < 1.0f) point = vec3(nx, ny, sqrt(1.0f - length));
+	else point = normalize(vec3(nx, ny, 0.0f));
+
+	return point;
+}
+
 
 #ifdef __APPLE__
 void initGLFW() {
@@ -61,17 +74,61 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if(key == GLFW_KEY_A) cameraPos -= normalize(cross(cameraFront, cameraUp)) * moving_scale;
 	if(key == GLFW_KEY_D) cameraPos += normalize(cross(cameraFront, cameraUp)) * moving_scale;
 }
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+		lastX = xpos;
+		lastY = ypos;
+	}
+}
+
+void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
+	vec3 lastPos = mapToSphere(lastX, lastY);
+}
+
 #elif defined(_WIN32)
+void changeSize(int w, int h) {
+
+	// Prevent a divide by zero, when window is too short
+	// (you cant make a window of zero width).
+	if (h == 0) h = 1;
+
+	float ratio = 1.0f * (float)w / (float)h;
+
+	// Set the viewport to be the entire window
+	glViewport(0, 0, w, h);
+
+}
+void keyboard(unsigned char key, int x, int y)
+{
+	if (key == 27) exit(0);
+	if (key == 'a') cameraPos -= normalize(cross(cameraFront, cameraUp)) * moving_scale;
+	if (key == 'd') cameraPos += normalize(cross(cameraFront, cameraUp)) * moving_scale;
+	if (key == 'w') cameraPos += moving_scale * cameraFront;
+	if (key == 's') cameraPos -= moving_scale * cameraFront;
+
+	glutPostRedisplay();
+}
+
 void initGLUT(int argc, char** argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(windowHeight, windowWidth);
 	glutCreateWindow("AAA633 - Assignment 1");
+
+	cout << "Initialize GLUT" << endl;
+}
+
+void idle()
+{
+	glutPostRedisplay();
 }
 #endif
 
 // Function to handle rendering
-void renderScene(InstanceManager instanceManager) 
+void renderScene() 
 {
 	glEnable(GL_DEPTH_TEST);
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -80,7 +137,7 @@ void renderScene(InstanceManager instanceManager)
 	mat4 projectionMatrix = system::perspective(system::toRadian(45.0f), (float)windowHeight / (float)windowWidth, 0.1f, 100.0f);
 	mat4 viewMatrix = system::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
-	instanceManager.renderAll(viewMatrix, projectionMatrix);
+	manager->renderAll(viewMatrix, projectionMatrix);
 
 	GLuint viewLoc = glGetUniformLocation(shaderProgram, "u_view");
 	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &viewMatrix[0][0]);
@@ -110,32 +167,45 @@ int main(int argc, char **argv)
 	glfwMakeContextCurrent(window);
 
 	glfwSetKeyCallback(window, key_callback);
+	glfwSetCursorPosCallback(window, cursorPosCallback);
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 #elif defined(_WIN32)
 	initGLUT(argc, argv);
-#endif
 
+	glutDisplayFunc(renderScene);
+	glutIdleFunc(renderScene);
+	glutReshapeFunc(changeSize);
+	glutKeyboardFunc(keyboard);
+	glutIdleFunc(idle); 
+#endif
 	if (glewInit() != GLEW_OK) {
 		std::cerr << "GLEW initialization failed!" << std::endl;
 		return -1;
 	}
 
+#ifdef __APPLE__
 	shaderProgram = createShaderProgram("../vshader.vert", "../fshader.frag");
+	MeshReader bunnyReader("../mesh-data/bunny.off");
+	MeshReader dragonReader("../mesh-data/dragon-full.off");
+#elif defined(_WIN32)
+	shaderProgram = createShaderProgram("vshader.vert", "fshader.frag");
+	MeshReader bunnyReader("bunny.off");
+	MeshReader dragonReader("dragon-full.off");
+#endif
 	glUseProgram(shaderProgram); // Shader Program을 사용해야한다고 생성 후 반드시 명시해야함
 
 	glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, vec3(1.0f, 1.0f, 1.0f));
 	glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, vec3(1.0f, 0.5f, 0.31f));
 	glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, lightPos);
 
-    MeshReader bunnyReader("../mesh-data/bunny.off");
-	MeshReader dragonReader("../mesh-data/dragon-full.off");
-
-	InstanceManager manager(shaderProgram);
+	manager = new InstanceManager(shaderProgram);
 	
 	Object* obj_bunny = new Object(&bunnyReader, vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 	Object* obj_dragon = new Object(&dragonReader, vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 
-	manager.addObject(obj_bunny);
-	manager.addObject(obj_dragon);
+	manager->addObject(obj_bunny);
+	manager->addObject(obj_dragon);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
     glEnableVertexAttribArray(0);
@@ -143,7 +213,7 @@ int main(int argc, char **argv)
 #ifdef __APPLE__
 	while (!glfwWindowShouldClose(window))
 	{
-		renderScene(manager);
+		renderScene();
 		glfwPollEvents();
 	}
 	glfwTerminate();

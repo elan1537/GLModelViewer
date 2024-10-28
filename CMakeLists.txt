@@ -40,8 +40,8 @@ ELSEIF (WIN32)
   ADD_EXECUTABLE(assign_1 ${SRC} ${HDR})
   TARGET_LINK_LIBRARIES(assign_1 ${EXTERNAL_LINK_LIBS})
 
-  # DLL 복사 (Windows용)
   FILE(GLOB_RECURSE DLLS ${CMAKE_SOURCE_DIR}/freeglut/*.dll ${CMAKE_SOURCE_DIR}/glew/*.dll)
+  SOURCE_GROUP("DLL Files" FILES ${DLLS})
   FILE(COPY ${DLLS} DESTINATION ${CMAKE_BINARY_DIR})
 
 # Linux (추가적인 설정 필요시)
