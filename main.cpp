@@ -26,6 +26,11 @@ int windowWidth = 960;
 
 float moving_scale = 0.05;
 
+float diffusion_scale = 0.5;
+float specular_scale = 0.5;
+float ambient_scale = 0.5;
+float shininess = 32.0f;
+
 vec3 cameraPos = vec3(0.0f, 0.0f, 3.0f);
 vec3 cameraFront = vec3(0.0f, 0.0f, -1.0f);
 vec3 cameraUp = vec3(0.0f, 1.0f, 0.0f);
@@ -73,6 +78,18 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if(key == GLFW_KEY_S) cameraPos -= moving_scale * cameraFront;
 	if(key == GLFW_KEY_A) cameraPos -= normalize(cross(cameraFront, cameraUp)) * moving_scale;
 	if(key == GLFW_KEY_D) cameraPos += normalize(cross(cameraFront, cameraUp)) * moving_scale;
+
+	if(key == GLFW_KEY_1) diffusion_scale += 0.05;
+	if(key == GLFW_KEY_3) diffusion_scale -= 0.05;
+
+	if(key == GLFW_KEY_4) specular_scale += 0.05;
+	if(key == GLFW_KEY_6) specular_scale -= 0.05;
+
+	if(key == GLFW_KEY_7) ambient_scale += 0.05;
+	if(key == GLFW_KEY_9) ambient_scale -= 0.05;
+
+	if(key == GLFW_KEY_KP_ADD) shininess *= 2.0f;
+	if(key == GLFW_KEY_MINUS) shininess /= 2.0f;
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
@@ -144,6 +161,11 @@ void renderScene()
 
 	GLuint projectionLoc = glGetUniformLocation(shaderProgram, "u_projection");
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+	glUniform1f(glGetUniformLocation(shaderProgram, "diffuseStrength"), diffusion_scale);
+	glUniform1f(glGetUniformLocation(shaderProgram, "specularStrength"), specular_scale);
+	glUniform1f(glGetUniformLocation(shaderProgram, "ambientStrength"), ambient_scale);
+	glUniform1f(glGetUniformLocation(shaderProgram, "shininess"), shininess);
 
 	glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, cameraPos);
 
