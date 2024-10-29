@@ -17,5 +17,5 @@ make assign_1
 - [x] Triangle Mesh Viewer with Vertex Normal
 - [ ] View point switch (Ortho <-> Perspective)
 - [x] Phong illumination with Shader
-- [ ] Changing shading params using Keyboard interaction
+- [x] Changing shading params using Keyboard interaction
 - [ ] Virtual Trackball
