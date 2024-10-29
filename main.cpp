@@ -40,6 +40,9 @@ vec3 lightPos(1.2f, 1.0f, 2.0f);
 
 InstanceManager *manager;
 
+bool trackingMouse = false;
+bool trackballMove = false;
+
 int lastX, lastY;
 bool viewMode = true;
 
@@ -48,12 +51,7 @@ vec3 mapToSphere(float x, float y) {
 	float ny = (windowHeight - 2.0 * y) / windowHeight;
 
 	float length = nx * nx + ny * ny;
-	vec3 point;
-
-	if (length < 1.0f) point = vec3(nx, ny, sqrt(1.0f - length));
-	else point = normalize(vec3(nx, ny, 0.0f));
-
-	return point;
+	return length < 1.0f ? vec3(nx, ny, sqrt(1.0f - length)) : normalize(vec3(nx, ny, 0.0f));
 }
 
 
@@ -102,11 +100,25 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 		glfwGetCursorPos(window, &xpos, &ypos);
 		lastX = xpos;
 		lastY = ypos;
+
+		trackingMouse = true;
+		// cout << lastX << " " << lastY << endl;
+	} else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+		trackingMouse = false;
 	}
 }
 
 void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
-	vec3 lastPos = mapToSphere(lastX, lastY);
+	if (trackingMouse) {
+		vec3 p1 = mapToSphere(lastX, lastY);
+		vec3 p2 = mapToSphere(xpos, ypos);
+
+		vec3 axis = cross(p1, p2);
+		float angle = acos(dot(normalize(p1), normalize(p2)));
+
+		lastX = xpos;
+		lastY = ypos;
+	}
 }
 
 #elif defined(_WIN32)
@@ -195,7 +207,7 @@ int main(int argc, char **argv)
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetCursorPosCallback(window, cursorPosCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	// glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 #elif defined(_WIN32)
 	initGLUT(argc, argv);
 
