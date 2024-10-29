@@ -41,6 +41,7 @@ vec3 lightPos(1.2f, 1.0f, 2.0f);
 InstanceManager *manager;
 
 int lastX, lastY;
+bool viewMode = true;
 
 vec3 mapToSphere(float x, float y) {
 	float nx = (2.0 * x - windowWidth) / windowWidth;
@@ -78,6 +79,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if(key == GLFW_KEY_S) cameraPos -= moving_scale * cameraFront;
 	if(key == GLFW_KEY_A) cameraPos -= normalize(cross(cameraFront, cameraUp)) * moving_scale;
 	if(key == GLFW_KEY_D) cameraPos += normalize(cross(cameraFront, cameraUp)) * moving_scale;
+
+	if(key == GLFW_KEY_P) viewMode = true;
+	if(key == GLFW_KEY_O) viewMode = false;
 
 	if(key == GLFW_KEY_1) diffusion_scale += 0.05;
 	if(key == GLFW_KEY_3) diffusion_scale -= 0.05;
@@ -151,7 +155,7 @@ void renderScene()
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	mat4 projectionMatrix = system::perspective(system::toRadian(45.0f), (float)windowHeight / (float)windowWidth, 0.1f, 100.0f);
+	mat4 projectionMatrix = viewMode ? system::perspective(system::toRadian(45.0f), (float)windowHeight / (float)windowWidth, 0.1f, 100.0f) : system::ortho(-1.0f, 1.0f, -1.0f, 1.0f, 0.1f, 100.0f);
 	mat4 viewMatrix = system::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
 	manager->renderAll(viewMatrix, projectionMatrix);

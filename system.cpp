@@ -1,4 +1,5 @@
 #include "system.h"
+
 // system 클래스의 lookAt 함수 구현
 mat4 system::lookAt(vec3 eye, vec3 center, vec3 up) {
     vec3 zAxis = normalize(eye - center);
@@ -34,6 +35,15 @@ mat4 system::perspective(float fovy, float aspect, float zNear, float zFar) {
     result[3][2] = -(2.0f * zFar * zNear) / (zFar - zNear);
 
     return result;
+}
+
+mat4 system::ortho(float left, float right, float bottom, float top, float zNear, float zFar) {
+    return mat4(
+        2.0f / (right - left), 0.0f, 0.0f, -(right + left) / (right - left),
+        0.0f, 2.0f / (top - bottom), 0.0f, -(top + bottom) / (top - bottom),
+        0.0f, 0.0f, -2.0f / (zFar - zNear), -(zFar + zNear) / (zFar - zNear),
+        0.0f, 0.0f, 0.0f, 1.0f
+    );
 }
 
 float system::toRadian(float degree) {
