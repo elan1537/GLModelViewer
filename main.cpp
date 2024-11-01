@@ -35,8 +35,15 @@ vec3 cameraPos = vec3(0.0f, 0.0f, 3.0f);
 vec3 cameraFront = vec3(0.0f, 0.0f, -1.0f);
 vec3 cameraUp = vec3(0.0f, 1.0f, 0.0f);
 
-GLuint lightVAO;
-vec3 lightPos(1.2f, 1.0f, 2.0f);
+struct Light {
+	vec3 position;
+	vec3 color;
+};
+
+vector<Light> lights = {
+	{ vec3(1.2f, 1.0f, 2.0f), vec3(1.0f, 0.0f, 0.0f) },
+	{ vec3(1.2f, -1.0f, 2.0f), vec3(0.0f ,0.0f, 1.0f) }
+};
 
 InstanceManager *manager;
 
@@ -232,10 +239,15 @@ int main(int argc, char **argv)
 	MeshReader dragonReader("dragon-full.off");
 #endif
 	glUseProgram(shaderProgram); // Shader Program을 사용해야한다고 생성 후 반드시 명시해야함
+	glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, vec3(1.0f, 1.0f, 1.0f));
 
-	glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, vec3(1.0f, 1.0f, 1.0f));
-	glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, vec3(1.0f, 0.5f, 0.31f));
-	glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, lightPos);
+	for (size_t i = 0; i < lights.size(); ++i) {
+        string positionUniform = "lights[" + std::to_string(i) + "].position";
+        glUniform3fv(glGetUniformLocation(shaderProgram, positionUniform.c_str()), 1, lights[i].position);
+
+        string colorUniform = "lights[" + std::to_string(i) + "].color";
+        glUniform3fv(glGetUniformLocation(shaderProgram, colorUniform.c_str()), 1, lights[i].color);
+    }
 
 	manager = new InstanceManager(shaderProgram);
 	
