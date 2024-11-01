@@ -35,10 +35,20 @@ vec3 cameraPos = vec3(0.0f, 0.0f, 3.0f);
 vec3 cameraFront = vec3(0.0f, 0.0f, -1.0f);
 vec3 cameraUp = vec3(0.0f, 1.0f, 0.0f);
 
-GLuint lightVAO;
-vec3 lightPos(1.2f, 1.0f, 2.0f);
+struct Light {
+	vec3 position;
+	vec3 color;
+};
+
+vector<Light> lights = {
+	{ vec3(1.2f, 1.0f, 2.0f), vec3(1.0f, 0.0f, 0.0f) },
+	{ vec3(1.2f, -1.0f, 2.0f), vec3(0.0f ,0.0f, 1.0f) }
+};
 
 InstanceManager *manager;
+
+bool trackingMouse = false;
+bool trackballMove = false;
 
 int lastX, lastY;
 bool viewMode = true;
@@ -48,12 +58,7 @@ vec3 mapToSphere(float x, float y) {
 	float ny = (windowHeight - 2.0 * y) / windowHeight;
 
 	float length = nx * nx + ny * ny;
-	vec3 point;
-
-	if (length < 1.0f) point = vec3(nx, ny, sqrt(1.0f - length));
-	else point = normalize(vec3(nx, ny, 0.0f));
-
-	return point;
+	return length < 1.0f ? vec3(nx, ny, sqrt(1.0f - length)) : normalize(vec3(nx, ny, 0.0f));
 }
 
 
@@ -102,11 +107,25 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 		glfwGetCursorPos(window, &xpos, &ypos);
 		lastX = xpos;
 		lastY = ypos;
+
+		trackingMouse = true;
+		// cout << lastX << " " << lastY << endl;
+	} else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+		trackingMouse = false;
 	}
 }
 
 void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
-	vec3 lastPos = mapToSphere(lastX, lastY);
+	if (trackingMouse) {
+		vec3 p1 = mapToSphere(lastX, lastY);
+		vec3 p2 = mapToSphere(xpos, ypos);
+
+		vec3 axis = cross(p1, p2);
+		float angle = acos(dot(normalize(p1), normalize(p2)));
+
+		lastX = xpos;
+		lastY = ypos;
+	}
 }
 
 #elif defined(_WIN32)
@@ -195,7 +214,7 @@ int main(int argc, char **argv)
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetCursorPosCallback(window, cursorPosCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	// glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 #elif defined(_WIN32)
 	initGLUT(argc, argv);
 
@@ -220,10 +239,15 @@ int main(int argc, char **argv)
 	MeshReader dragonReader("dragon-full.off");
 #endif
 	glUseProgram(shaderProgram); // Shader Program을 사용해야한다고 생성 후 반드시 명시해야함
+	glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, vec3(1.0f, 1.0f, 1.0f));
 
-	glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, vec3(1.0f, 1.0f, 1.0f));
-	glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, vec3(1.0f, 0.5f, 0.31f));
-	glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, lightPos);
+	for (size_t i = 0; i < lights.size(); ++i) {
+        string positionUniform = "lights[" + std::to_string(i) + "].position";
+        glUniform3fv(glGetUniformLocation(shaderProgram, positionUniform.c_str()), 1, lights[i].position);
+
+        string colorUniform = "lights[" + std::to_string(i) + "].color";
+        glUniform3fv(glGetUniformLocation(shaderProgram, colorUniform.c_str()), 1, lights[i].color);
+    }
 
 	manager = new InstanceManager(shaderProgram);
 	
