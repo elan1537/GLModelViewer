@@ -179,7 +179,76 @@ void keyboard(unsigned char key, int x, int y)
 	if (key == 'w') cameraPos += moving_scale * cameraFront;
 	if (key == 's') cameraPos -= moving_scale * cameraFront;
 
+	if (key == 'p') viewMode = true;
+	if (key == 'o') viewMode = false;
+
+	if (key == '1') diffusion_scale += 0.05;
+	if (key == '3') diffusion_scale -= 0.05;
+
+	if (key == '4') specular_scale += 0.05;
+	if (key == '6') specular_scale -= 0.05;
+
+	if (key == '7') ambient_scale += 0.05;
+	if (key == '9') ambient_scale -= 0.05;
+
+	if (key == '+') shininess *= 2.0f;
+	if (key == '-') shininess /= 2.0f;
+
 	glutPostRedisplay();
+}
+
+void mouseMotionCallback(int x, int y) {
+    if (trackingMouse) {
+        vec3 p1 = mapToSphere(lastX, lastY);
+        vec3 p2 = mapToSphere(x, y);
+
+        if (currentButton == GLUT_LEFT_BUTTON) {
+            vec3 axis = normalize(cross(p1, p2));
+            float angle = acos(dot(p1, p2)) * 50.0f;
+
+            if (length(axis) < 0.001f || abs(angle) < 0.001f || isnan(angle)) return;
+
+            mat4 rotationMatrix = mat4(1.0f);
+            if (abs(axis.x) > 0.001f) rotationMatrix = RotateX(angle * axis.x) * rotationMatrix;
+            if (abs(axis.y) > 0.001f) rotationMatrix = RotateY(angle * axis.y) * rotationMatrix;
+            if (abs(axis.z) > 0.001f) rotationMatrix = RotateZ(angle * axis.z) * rotationMatrix;
+
+            vec4 cameraFront_4 = rotationMatrix * vec4(cameraFront, 1.0f);
+            vec4 cameraUp_4 = rotationMatrix * vec4(cameraUp, 1.0f);
+
+            cameraFront = normalize(vec3(cameraFront_4.x, cameraFront_4.y, cameraFront_4.z));
+            cameraUp = normalize(vec3(cameraUp_4.x, cameraUp_4.y, cameraUp_4.z));
+        } else if (currentButton == GLUT_MIDDLE_BUTTON) {
+            float panSpeed = 0.01;
+            vec2 delta = vec2(x - lastX, y - lastY) * panSpeed;
+            vec3 right = normalize(cross(cameraFront, cameraUp));
+            cameraPos += right * delta.x;
+            cameraPos -= cameraUp * delta.y;
+        } else if (currentButton == GLUT_RIGHT_BUTTON) {
+            float zoomSpeed = 0.1f;
+            float delta = (y - lastY) * zoomSpeed;
+            if (viewMode) {
+                cameraPos += delta * cameraFront;
+            } else {
+                zoomScale += delta * 0.1f;
+                zoomScale = min(max(0.1f, zoomScale), 10.0f);
+            }
+        }
+        lastX = x;
+        lastY = y;
+    }
+}
+
+void mouseButtonCallback(int button, int state, int x, int y) {
+	if (state == GLUT_DOWN) {
+		trackingMouse = true;
+		currentButton = button;
+		lastX = x;
+		lastY = y;
+	} else if (state == GLUT_UP) {
+		trackingMouse = false;
+		currentButton = -1;
+	}
 }
 
 void initGLUT(int argc, char** argv) {
@@ -254,6 +323,8 @@ int main(int argc, char **argv)
 	glutDisplayFunc(renderScene);
 	glutIdleFunc(renderScene);
 	glutReshapeFunc(changeSize);
+	glutMouseFunc(mouseButtonCallback);
+	glutMotionFunc(mouseMotionCallback);
 	glutKeyboardFunc(keyboard);
 	glutIdleFunc(idle); 
 #endif
