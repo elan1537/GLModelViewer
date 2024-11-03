@@ -10,6 +10,17 @@ public:
     vec3 up;          // 카메라의 업 벡터
     mat4 viewMatrix;  // 뷰 행렬
 
+    // Ortho 최대, 최소 비율
+    float minScale = 0.2f;
+    float maxScale = 5.0f;
+
+    // Perspective 최소 및 최대 거리 설정
+    float minDistance = 0.5f;
+    float maxDistance = 50.0f;
+
+    bool isPerspective = true;
+    float orthographicsScale = 1.0f;
+
     Camera(const vec3& position, const vec3& target, const vec3& up) {
         this->position = position;
         this->target = target;
@@ -17,7 +28,29 @@ public:
         updateViewMatrix();
     }
 
+    vec3 getFront() const {
+        /* 
+        카메라의 앞 방향을 향하는 Vector 반환
+        */
+        return normalize(target - position);
+    }
+
+    vec3 getRight() const {
+        /*
+        카메라의 오른쪽 방향을 향하는 Vector 반환
+        */
+        return normalize(cross(getFront(), up));
+    }
+
+    vec3 getUp() const {
+        /*
+        카메라의 위 방향을 향하는 Vector 반환
+        */
+        return normalize(cross(getRight(), getFront()));
+    }
+
     void updateViewMatrix() {
+        /* 카메라 view 행렬 업데이트 */
         viewMatrix = LookAt(position, target, up);
     }
 
@@ -41,15 +74,41 @@ public:
     }
 
     void zoom(float amount) {
-        vec3 direction = normalize(target - position);
-        position += direction * amount;
+        if (isPerspective) { // Perspective 투영일 때
+            vec3 direction = normalize(target - position);
 
-        updateViewMatrix();
+            // 현재 카메라와 대상 사이의 거리 계산
+            float currentDistance = length(position - target);
+
+            // 원하는 새로운 거리 계산
+            float desiredDistance = currentDistance - amount;
+
+            // 새로운 거리가 최소 거리보다 작으면 이동하지 않음
+            if (desiredDistance < minDistance) {
+                desiredDistance = minDistance;
+            }
+            // 새로운 거리가 최대 거리보다 크면 이동하지 않음
+            else if (desiredDistance > maxDistance) {
+                desiredDistance = maxDistance;
+            }
+
+            // 카메라 위치 업데이트
+            position = target - direction * desiredDistance;
+            updateViewMatrix();
+        } else { // Ortho 투영일 때
+            orthographicsScale += amount;
+
+            // minScale < orthographicsScale < maxScale 안으로 Zoom이 되게...
+            if (orthographicsScale < minScale) {
+                orthographicsScale = minScale;
+            } else if (orthographicsScale > maxScale) {
+                orthographicsScale = maxScale;
+            }
+        }
     }
 
     void pan(float deltaX, float deltaY) {
-        vec3 right = normalize(cross(target - position, up));
-        vec3 delta = right * deltaX + up * deltaY;
+        vec3 delta = getRight() * deltaX + up * deltaY;
 
         position += delta;
         target += delta;

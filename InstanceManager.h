@@ -13,7 +13,7 @@ public:
 
     void addObject(Object* obj);
 
-    void renderAll(mat4& viewMatrix, mat4& projectionMatrix);
+    void renderAll();
 
 private:
     GLuint shaderProgram;

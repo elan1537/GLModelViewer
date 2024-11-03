@@ -11,35 +11,22 @@
 #endif
 
 #include "MeshReader.h"
-#include "system.h"
-#include "Object.h"
-#include "InstanceManager.h"
+#include "Object.h"				// 오브젝트 클래스
+#include "InstanceManager.h"	// 인스턴스 매니저 클래스
 #include "Camera.h" 			// 카메라 클래스
 
 #include "textfile.h"
 #include "Angel.h"
 
-GLuint shaderProgram;
-std::vector<Vertex> vertices;
-std::vector<Face> faces;
+// 윈도우 크기 변수
 int windowHeight = 960;
 int windowWidth = 1280;
 
+// Phong 쉐이딩 관련 변수
 float diffusion_scale = 0.5;
 float specular_scale = 0.5;
 float ambient_scale = 0.5;
 float shininess = 32.0f;
-
-
-float zoomScale = 0.5f;
-float rotateScale = 1.0f;
-float moveScale = 0.1f;
-
-vec3 initialPosition = vec3(0.0f, 0.0f, 2.0f); 	// 카메라 위치 (z축 양의 방향)
-vec3 targetPosition = vec3(0.0f, 0.0f, 0.0f);   // 바라보는 대상 (원점)
-vec3 upVector = vec3(0.0f, 1.0f, 0.0f);         // 업 벡터
-
-Camera camera(initialPosition, targetPosition, upVector);
 
 struct Light {
 	vec3 position;
@@ -51,26 +38,31 @@ vector<Light> lights = {
 	{ vec3(1.2f, -1.0f, 2.0f), vec3(0.0f ,0.0f, 1.0f) },
 };
 
-InstanceManager *manager;
+// Translate, Rotate, Zoom 관련 스케일 변수
+float zoomScale = 0.05f;	
+float rotateScale = 1.0f;
+float moveScale = 0.005f;
 
-bool trackingMouse = false;
-bool trackballMove = false;
+// 카메라 관련
+vec3 initialPosition = vec3(0.0f, 0.0f, 2.0f); 	// 카메라 위치 (z축 양의 방향)
+vec3 targetPosition = vec3(0.0f, 0.0f, 0.0f);   // 바라보는 대상 (원점)
+vec3 upVector = vec3(0.0f, 1.0f, 0.0f);         // 업 벡터
 
-double lastX, lastY;
-bool viewMode = true;
+Camera camera(initialPosition, targetPosition, upVector);
 
-int currentButton = -1;
-
+// 투영 및 뷰 행렬
 mat4 projectionMatrix;
 mat4 viewMatrix;
 
-vec3 mapToSphere(float x, float y) {
-	float nx = (2.0 * x - windowWidth) / windowWidth;
-	float ny = (windowHeight - 2.0 * y) / windowHeight;
+// 트랙볼 관련
+bool trackingMouse = false;
+double lastX, lastY;
 
-	float length = nx * nx + ny * ny;
-	return length < 1.0f ? vec3(nx, ny, sqrt(1.0f - length)) : normalize(vec3(nx, ny, 0.0f));
-}
+int currentButton = -1;		// 마우스 현재 버튼 상태값
+
+// 렌더링 및 쉐이더 관련
+InstanceManager *manager;
+GLuint shaderProgram;
 
 
 #ifdef __APPLE__
@@ -91,15 +83,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 	}
 
-	if (key == GLFW_KEY_W) camera.move(vec3(0.0f, 0.0f, -moveScale));
-    if (key == GLFW_KEY_S) camera.move(vec3(0.0f, 0.0f, moveScale));
-    if (key == GLFW_KEY_A) camera.move(vec3(-moveScale, 0.0f, 0.0f));
-    if (key == GLFW_KEY_D) camera.move(vec3(moveScale, 0.0f, 0.0f));
-	if (key == GLFW_KEY_Q) camera.move(vec3(0.0f, moveScale, 0.0f));
-	if (key == GLFW_KEY_E) camera.move(vec3(0.0f, -moveScale, 0.0f));
+	if (key == GLFW_KEY_W) camera.move(camera.getFront() * moveScale);
+    if (key == GLFW_KEY_S) camera.move(-camera.getFront() * moveScale);
+    if (key == GLFW_KEY_A) camera.move(-camera.getRight() * moveScale);
+    if (key == GLFW_KEY_D) camera.move(camera.getRight() * moveScale);
+	if (key == GLFW_KEY_Q) camera.move(camera.getUp() * moveScale);
+	if (key == GLFW_KEY_E) camera.move(-camera.getUp() * moveScale);
 
-	if(key == GLFW_KEY_P) viewMode = true;
-	if(key == GLFW_KEY_O) viewMode = false;
+	if(key == GLFW_KEY_P) camera.isPerspective = true;
+	if(key == GLFW_KEY_O) camera.isPerspective = false;
 
 	if(key == GLFW_KEY_1) diffusion_scale += 0.05;
 	if(key == GLFW_KEY_3) diffusion_scale -= 0.05;
@@ -163,78 +155,63 @@ void changeSize(int w, int h) {
 }
 void keyboard(unsigned char key, int x, int y)
 {
+	// 프로그램 종료
 	if (key == 27) exit(0);
-    if (key == 'w') camera.move(camera.front, moveSpeed);
-    if (key == 's') camera.move(-camera.front, moveSpeed);
-    if (key == 'a') camera.move(-normalize(cross(camera.front, camera.up)), moveSpeed);
-    if (key == 'd') camera.move(normalize(cross(camera.front, camera.up)), moveSpeed);
 
-	if (key == 'p') viewMode = true;
-	if (key == 'o') viewMode = false;
+	// 카메라 이동 관련
+	if (key == 'w') camera.move(camera.getFront() * moveScale);
+    if (key == 's') camera.move(-camera.getFront() * moveScale);
+    if (key == 'a') camera.move(-camera.getRight() * moveScale);
+    if (key == 'd') camera.move(camera.getRight() * moveScale);
+	if (key == 'q') camera.move(camera.getUp() * moveScale);
+	if (key == 'e') camera.move(-camera.getUp() * moveScale);
 
+	// P와 O키를 누르면 Perspective & Ortho 투영으로 변경
+	if(key == 'p') camera.isPerspective = true;
+	if(key == 'o') camera.isPerspective = false;
+
+	// Diffusion 파라미터 변경
 	if (key == '1') diffusion_scale += 0.05;
 	if (key == '3') diffusion_scale -= 0.05;
 
+	// Specular 파라미터 변경
 	if (key == '4') specular_scale += 0.05;
 	if (key == '6') specular_scale -= 0.05;
 
+	// Ambient 파라미터 변경
 	if (key == '7') ambient_scale += 0.05;
 	if (key == '9') ambient_scale -= 0.05;
 
+	// Shininess 변경
 	if (key == '+') shininess *= 2.0f;
 	if (key == '-') shininess /= 2.0f;
 
 	glutPostRedisplay();
 }
 
-void mouseMotionCallback(int x, int y) {
-    if (trackingMouse) {
-        vec3 p1 = mapToSphere(lastX, lastY);
-        vec3 p2 = mapToSphere(x, y);
+void mouseMotionCallback(int xpos, int ypos) {
+	if (trackingMouse) {
+		float deltaX = (xpos - lastX);
+		float deltaY = (ypos - lastY);
 
-        if (currentButton == GLUT_LEFT_BUTTON) {
-            vec3 axis = normalize(cross(p1, p2));
-            float angle = acos(dot(p1, p2)) * 50.0f;
-
-            if (length(axis) < 0.001f || abs(angle) < 0.001f || isnan(angle)) return;
-
-            mat4 rotationMatrix = mat4(1.0f);
-            if (abs(axis.x) > 0.001f) rotationMatrix = RotateX(angle * axis.x) * rotationMatrix;
-            if (abs(axis.y) > 0.001f) rotationMatrix = RotateY(angle * axis.y) * rotationMatrix;
-            if (abs(axis.z) > 0.001f) rotationMatrix = RotateZ(angle * axis.z) * rotationMatrix;
-
-            vec4 cameraFront_4 = rotationMatrix * vec4(cameraFront, 1.0f);
-            vec4 cameraUp_4 = rotationMatrix * vec4(cameraUp, 1.0f);
-
-            cameraFront = normalize(vec3(cameraFront_4.x, cameraFront_4.y, cameraFront_4.z));
-            cameraUp = normalize(vec3(cameraUp_4.x, cameraUp_4.y, cameraUp_4.z));
-        } else if (currentButton == GLUT_MIDDLE_BUTTON) {
-            float panSpeed = 0.01;
-            vec2 delta = vec2(x - lastX, y - lastY) * panSpeed;
-            vec3 right = normalize(cross(cameraFront, cameraUp));
-            cameraPos += right * delta.x;
-            cameraPos -= cameraUp * delta.y;
-        } else if (currentButton == GLUT_RIGHT_BUTTON) {
-            float zoomSpeed = 0.1f;
-            float delta = (y - lastY) * zoomSpeed;
-            if (viewMode) {
-                cameraPos += delta * cameraFront;
-            } else {
-                zoomScale += delta * 0.1f;
-                zoomScale = min(max(0.1f, zoomScale), 10.0f);
-            }
-        }
-        lastX = x;
-        lastY = y;
-    }
+		if (currentButton == GLUT_LEFT_BUTTON) {
+			camera.rotate(deltaX * rotateScale, deltaY * rotateScale);
+		} else if (currentButton == GLUT_MIDDLE_BUTTON) {
+			camera.pan(deltaX * moveScale, -deltaY * moveScale);
+		} else if (currentButton == GLUT_RIGHT_BUTTON) {
+			camera.zoom(deltaY * zoomScale);
+		}
+		lastX = xpos;
+		lastY = ypos;
+	}
 }
 
-void mouseButtonCallback(int button, int state, int x, int y) {
+void mouseButtonCallback(int button, int state, int xpos, int ypos) {
 	if (state == GLUT_DOWN) {
 		trackingMouse = true;
 		currentButton = button;
-		lastX = x;
-		lastY = y;
+		lastX = xpos;
+		lastY = ypos;
 	} else if (state == GLUT_UP) {
 		trackingMouse = false;
 		currentButton = -1;
@@ -244,7 +221,7 @@ void mouseButtonCallback(int button, int state, int x, int y) {
 void initGLUT(int argc, char** argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-	glutInitWindowSize(windowHeight, windowWidth);
+	glutInitWindowSize(windowWidth, windowHeight);
 	glutCreateWindow("AAA633 - Assignment 1");
 
 	cout << "Initialize GLUT" << endl;
@@ -256,7 +233,7 @@ void idle()
 }
 #endif
 
-// Function to handle rendering
+// 렌더링
 void renderScene() 
 {
 	glEnable(GL_DEPTH_TEST);
@@ -264,8 +241,9 @@ void renderScene()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	float aspectRatio = (float)windowWidth / (float)windowHeight;
-	projectionMatrix = viewMode ? Perspective(45.0f, aspectRatio, 0.1f, 100.0f) : Ortho(-zoomScale * aspectRatio, zoomScale * aspectRatio, -zoomScale, zoomScale, -10.0f, 10.0f);
+	projectionMatrix = camera.isPerspective ? Perspective(45.0f, aspectRatio, 0.1f, 100.0f) : Ortho(-aspectRatio * camera.orthographicsScale, aspectRatio * camera.orthographicsScale, -camera.orthographicsScale, camera.orthographicsScale, -10, 10);
 
+	// Phong 쉐이딩 파라미터 전달
 	glUniform1f(glGetUniformLocation(shaderProgram, "diffuseStrength"), diffusion_scale);
 	glUniform1f(glGetUniformLocation(shaderProgram, "specularStrength"), specular_scale);
 	glUniform1f(glGetUniformLocation(shaderProgram, "ambientStrength"), ambient_scale);
@@ -276,16 +254,8 @@ void renderScene()
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "u_view"), 1, GL_TRUE, &camera.viewMatrix[0][0]);
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "u_projection"), 1, GL_TRUE, &projectionMatrix[0][0]);
 
-	// 객체 렌더링 루프
-	for (const auto& object : manager->objects) {
-		glBindVertexArray(object->getVAO());
-		mat4 modelMatrix = object->getModelMatrix();
-		
-		GLuint modelLoc = glGetUniformLocation(shaderProgram, "u_model");
-		glUniformMatrix4fv(modelLoc, 1, GL_TRUE, &modelMatrix[0][0]);
-
-		glDrawElements(GL_TRIANGLES, object->getFaceCount() * 3, GL_UNSIGNED_INT, 0);
-	}
+	// 등록된 오브젝트 렌더링
+	manager->renderAll();
 
 #ifdef __APPLE__
     glfwSwapBuffers(glfwGetCurrentContext());
@@ -319,26 +289,23 @@ int main(int argc, char **argv)
 	glutReshapeFunc(changeSize);
 	glutMouseFunc(mouseButtonCallback);
 	glutMotionFunc(mouseMotionCallback);
-	glutKeyboardFunc(keyboard);
+	glutKeyboardFunc(keyboard);	
 	glutIdleFunc(idle); 
 #endif
 	if (glewInit() != GLEW_OK) {
 		std::cerr << "GLEW initialization failed!" << std::endl;
 		return -1;
 	}
-
-#ifdef __APPLE__
-	shaderProgram = createShaderProgram("../vshader.vert", "../fshader.frag");
-	MeshReader bunnyReader("../mesh-data/bunny.off");
-	MeshReader dragonReader("../mesh-data/dragon-full.off");
-#elif defined(_WIN32)
-	shaderProgram = createShaderProgram("vshader.vert", "fshader.frag");
-	MeshReader bunnyReader("bunny.off");
-	MeshReader dragonReader("dragon-full.off");
-#endif
+	shaderProgram = createShaderProgram("vshader.vert", "fshader.frag"); // 쉐이더 등록
 	glUseProgram(shaderProgram); // Shader Program을 사용해야한다고 생성 후 반드시 명시해야함
-	glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, vec3(1.0f, 1.0f, 1.0f));
 
+	MeshReader bunnyReader("bunny.off");								 // 토끼 Mesh 리더
+	MeshReader dragonReader("dragon-full.off");							 // 용 Mesh 리더
+	MeshReader fandiskReader("fandisk.off");						 	 // 팬디스크 Mesh 리더	
+
+	glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, vec3(1.0f, 1.0f, 1.0f)); // 오브젝트 컬러는 흰색으로 고정 (조명들의 조합을 확인하기 쉬우라고)
+
+	// Lighting 위치와 색 전달
 	for (size_t i = 0; i < lights.size(); ++i) {
         string positionUniform = "lights[" + std::to_string(i) + "].position";
         glUniform3fv(glGetUniformLocation(shaderProgram, positionUniform.c_str()), 1, lights[i].position);
@@ -347,13 +314,16 @@ int main(int argc, char **argv)
         glUniform3fv(glGetUniformLocation(shaderProgram, colorUniform.c_str()), 1, lights[i].color);
     }
 
+	// 객체 렌더링을 위한 InstanceManager 등록
 	manager = new InstanceManager(shaderProgram);
 	
-	Object* obj_bunny = new Object(&bunnyReader, vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
-	Object* obj_dragon = new Object(&dragonReader, vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	Object* obj_bunny = new Object(&bunnyReader, vec3(-0.3f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	Object* obj_dragon = new Object(&dragonReader, vec3(0.0f, 0.0f, 0.5f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	Object* obj_fandisk = new Object(&fandiskReader, vec3(0.3f, 0.0f, 0.0f), vec3(30.0f, 0.0f, 0.0f), vec3(0.1f, 0.1f, 0.1f));
 
 	manager->addObject(obj_bunny);
 	manager->addObject(obj_dragon);
+	manager->addObject(obj_fandisk);
 
 #ifdef __APPLE__
 	while (!glfwWindowShouldClose(window))
@@ -363,7 +333,6 @@ int main(int argc, char **argv)
 	}
 	glfwTerminate();
 #elif defined(_WIN32)
-	glutDisplayFunc(renderScene);
 	glutMainLoop();
 #endif
 

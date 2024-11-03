@@ -25,7 +25,7 @@ IF (APPLE)
   SET(EXTERNAL_LINK_LIBS OpenGL::GL /opt/homebrew/lib/libglfw.3.dylib GLEW)
 
   # GLFW 경로 설정
-  ADD_EXECUTABLE(assign_1 ${SRC} ${HDR} system.cpp)
+  ADD_EXECUTABLE(assign_1 ${SRC} ${HDR})
   TARGET_LINK_LIBRARIES(assign_1 ${EXTERNAL_LINK_LIBS})
 
 # Windows에서 freeglut 사용
