@@ -14,6 +14,7 @@
 #include "system.h"
 #include "Object.h"
 #include "InstanceManager.h"
+#include "Camera.h" 			// 카메라 클래스
 
 #include "textfile.h"
 #include "Angel.h"
@@ -21,21 +22,24 @@
 GLuint shaderProgram;
 std::vector<Vertex> vertices;
 std::vector<Face> faces;
-int windowHeight = 1280;
-int windowWidth = 960;
-
-float moving_scale = 0.1;
+int windowHeight = 960;
+int windowWidth = 1280;
 
 float diffusion_scale = 0.5;
 float specular_scale = 0.5;
 float ambient_scale = 0.5;
 float shininess = 32.0f;
 
-vec3 cameraPos = vec3(0.0f, 0.0f, 3.0f);
-vec3 cameraFront = vec3(0.0f, 0.0f, -1.0f);
-vec3 cameraUp = vec3(0.0f, 1.0f, 0.0f);
 
-float zoomScale = 1.0f;
+float zoomScale = 0.5f;
+float rotateScale = 1.0f;
+float moveScale = 0.1f;
+
+vec3 initialPosition = vec3(0.0f, 0.0f, 2.0f); 	// 카메라 위치 (z축 양의 방향)
+vec3 targetPosition = vec3(0.0f, 0.0f, 0.0f);   // 바라보는 대상 (원점)
+vec3 upVector = vec3(0.0f, 1.0f, 0.0f);         // 업 벡터
+
+Camera camera(initialPosition, targetPosition, upVector);
 
 struct Light {
 	vec3 position;
@@ -56,6 +60,9 @@ double lastX, lastY;
 bool viewMode = true;
 
 int currentButton = -1;
+
+mat4 projectionMatrix;
+mat4 viewMatrix;
 
 vec3 mapToSphere(float x, float y) {
 	float nx = (2.0 * x - windowWidth) / windowWidth;
@@ -84,10 +91,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 	}
 
-	if(key == GLFW_KEY_W) cameraPos += moving_scale * cameraFront;
-	if(key == GLFW_KEY_S) cameraPos -= moving_scale * cameraFront;
-	if(key == GLFW_KEY_A) cameraPos -= normalize(cross(cameraFront, cameraUp)) * moving_scale;
-	if(key == GLFW_KEY_D) cameraPos += normalize(cross(cameraFront, cameraUp)) * moving_scale;
+	if (key == GLFW_KEY_W) camera.move(vec3(0.0f, 0.0f, -moveScale));
+    if (key == GLFW_KEY_S) camera.move(vec3(0.0f, 0.0f, moveScale));
+    if (key == GLFW_KEY_A) camera.move(vec3(-moveScale, 0.0f, 0.0f));
+    if (key == GLFW_KEY_D) camera.move(vec3(moveScale, 0.0f, 0.0f));
+	if (key == GLFW_KEY_Q) camera.move(vec3(0.0f, moveScale, 0.0f));
+	if (key == GLFW_KEY_E) camera.move(vec3(0.0f, -moveScale, 0.0f));
 
 	if(key == GLFW_KEY_P) viewMode = true;
 	if(key == GLFW_KEY_O) viewMode = false;
@@ -118,44 +127,25 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
 	if (trackingMouse) {
-		vec3 p1 = mapToSphere(lastX, lastY);
-		vec3 p2 = mapToSphere(xpos, ypos);
+		float deltaX = (xpos - lastX);
+		float deltaY = (ypos - lastY);
 
 		if (currentButton == GLFW_MOUSE_BUTTON_LEFT) {
-			vec3 axis = normalize(cross(p1, p2));
-			float angle = acos(dot(p1, p2)) * 50.0f;
-
-			if (length(axis) < 0.001f || abs(angle) < 0.001f || isnan(angle)) return;
-
-			mat4 rotationMatrix = mat4(1.0f);
-    		if (abs(axis.x) > 0.001f) rotationMatrix = RotateX(angle * axis.x) * rotationMatrix;
-    		if (abs(axis.y) > 0.001f) rotationMatrix = RotateY(angle * axis.y) * rotationMatrix;
-    		if (abs(axis.z) > 0.001f) rotationMatrix = RotateZ(angle * axis.z) * rotationMatrix;
-
-			vec4 cameraFront_4 = rotationMatrix * vec4(cameraFront, 1.0f);
-			vec4 cameraUp_4 = rotationMatrix * vec4(cameraUp, 1.0f);
-
-			cameraFront = normalize(vec3(cameraFront_4.x, cameraFront_4.y, cameraFront_4.z));
-			cameraUp = normalize(vec3(cameraUp_4.x, cameraUp_4.y, cameraUp_4.z));
+			camera.rotate(deltaX * rotateScale, deltaY * rotateScale);
 		} else if (currentButton == GLFW_MOUSE_BUTTON_MIDDLE) {
-			float panSpeed = 0.01;
-			vec2 delta = vec2(xpos - lastX, ypos - lastY) * panSpeed;
-			vec3 right = normalize(cross(cameraFront, cameraUp));
-			cameraPos += right * delta.x;
-			cameraPos -= cameraUp * delta.y;
+			camera.pan(deltaX * moveScale, -deltaY * moveScale);
 		} else if (currentButton == GLFW_MOUSE_BUTTON_RIGHT) {
-			float zoomSpeed = 0.1f;
-			float delta = (ypos - lastY) * zoomSpeed;
-			if (viewMode) {
-				cameraPos += delta * cameraFront;
-			} else {
-				zoomScale += delta * 0.1f;
-				zoomScale = min(max(0.1f, zoomScale), 10.0f);
-			}
+			camera.zoom(deltaY * zoomScale);
 		}
 		lastX = xpos;
 		lastY = ypos;
 	}
+}
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    windowWidth = width;
+    windowHeight = height;
+    glViewport(0, 0, width, height);
 }
 
 #elif defined(_WIN32)
@@ -174,10 +164,10 @@ void changeSize(int w, int h) {
 void keyboard(unsigned char key, int x, int y)
 {
 	if (key == 27) exit(0);
-	if (key == 'a') cameraPos -= normalize(cross(cameraFront, cameraUp)) * moving_scale;
-	if (key == 'd') cameraPos += normalize(cross(cameraFront, cameraUp)) * moving_scale;
-	if (key == 'w') cameraPos += moving_scale * cameraFront;
-	if (key == 's') cameraPos -= moving_scale * cameraFront;
+    if (key == 'w') camera.move(camera.front, moveSpeed);
+    if (key == 's') camera.move(-camera.front, moveSpeed);
+    if (key == 'a') camera.move(-normalize(cross(camera.front, camera.up)), moveSpeed);
+    if (key == 'd') camera.move(normalize(cross(camera.front, camera.up)), moveSpeed);
 
 	if (key == 'p') viewMode = true;
 	if (key == 'o') viewMode = false;
@@ -273,26 +263,29 @@ void renderScene()
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	float aspectRatio = (float)windowHeight / (float)windowWidth;
-
-	mat4 projectionMatrix = viewMode ? system::perspective(system::toRadian(45.0f), aspectRatio, 0.1f, 100.0f) : 
-									   system::ortho(-zoomScale * aspectRatio, zoomScale * aspectRatio, -zoomScale, zoomScale, -10.0f, 10.0f);
-	mat4 viewMatrix = system::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-
-	manager->renderAll(viewMatrix, projectionMatrix);
-
-	GLuint viewLoc = glGetUniformLocation(shaderProgram, "u_view");
-	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &viewMatrix[0][0]);
-
-	GLuint projectionLoc = glGetUniformLocation(shaderProgram, "u_projection");
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projectionMatrix[0][0]);
+	float aspectRatio = (float)windowWidth / (float)windowHeight;
+	projectionMatrix = viewMode ? Perspective(45.0f, aspectRatio, 0.1f, 100.0f) : Ortho(-zoomScale * aspectRatio, zoomScale * aspectRatio, -zoomScale, zoomScale, -10.0f, 10.0f);
 
 	glUniform1f(glGetUniformLocation(shaderProgram, "diffuseStrength"), diffusion_scale);
 	glUniform1f(glGetUniformLocation(shaderProgram, "specularStrength"), specular_scale);
 	glUniform1f(glGetUniformLocation(shaderProgram, "ambientStrength"), ambient_scale);
 	glUniform1f(glGetUniformLocation(shaderProgram, "shininess"), shininess);
+	glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, camera.position);
 
-	glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, cameraPos);
+	// 뷰와 투영 행렬을 객체 렌더링 전에 설정
+	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "u_view"), 1, GL_TRUE, &camera.viewMatrix[0][0]);
+	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "u_projection"), 1, GL_TRUE, &projectionMatrix[0][0]);
+
+	// 객체 렌더링 루프
+	for (const auto& object : manager->objects) {
+		glBindVertexArray(object->getVAO());
+		mat4 modelMatrix = object->getModelMatrix();
+		
+		GLuint modelLoc = glGetUniformLocation(shaderProgram, "u_model");
+		glUniformMatrix4fv(modelLoc, 1, GL_TRUE, &modelMatrix[0][0]);
+
+		glDrawElements(GL_TRIANGLES, object->getFaceCount() * 3, GL_UNSIGNED_INT, 0);
+	}
 
 #ifdef __APPLE__
     glfwSwapBuffers(glfwGetCurrentContext());
@@ -306,7 +299,7 @@ int main(int argc, char **argv)
 #ifdef __APPLE__
 	initGLFW();
 
-	GLFWwindow* window = glfwCreateWindow(windowHeight, windowWidth, "AAA633 - Assignment 1", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, "AAA633 - Assignment 1", NULL, NULL);
 	if (!window) {
 		glfwTerminate();
 		exit(EXIT_FAILURE);
@@ -316,6 +309,7 @@ int main(int argc, char **argv)
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetCursorPosCallback(window, cursorPosCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	// glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 #elif defined(_WIN32)
 	initGLUT(argc, argv);
@@ -355,14 +349,11 @@ int main(int argc, char **argv)
 
 	manager = new InstanceManager(shaderProgram);
 	
-	Object* obj_bunny = new Object(&bunnyReader, vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	Object* obj_bunny = new Object(&bunnyReader, vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 	Object* obj_dragon = new Object(&dragonReader, vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 
 	manager->addObject(obj_bunny);
 	manager->addObject(obj_dragon);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-    glEnableVertexAttribArray(0);
 
 #ifdef __APPLE__
 	while (!glfwWindowShouldClose(window))

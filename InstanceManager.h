@@ -8,6 +8,7 @@
 
 class InstanceManager {
 public:
+    std::vector<Object*> objects;
     InstanceManager(GLuint shaderProgram);
 
     void addObject(Object* obj);
@@ -15,7 +16,6 @@ public:
     void renderAll(mat4& viewMatrix, mat4& projectionMatrix);
 
 private:
-    std::vector<Object*> objects;
     GLuint shaderProgram;
 };
 

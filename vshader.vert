@@ -12,7 +12,7 @@ uniform mat4 u_projection;
 
 void main() {
     FragPos = vec3(u_model * vec4(aPos, 1.0));  // 위치 설정
-    Normal = mat3(transpose(inverse(u_model))) * aNormal;  
+    Normal = mat3(transpose(inverse(u_model))) * aNormal;
 
-    gl_Position = u_projection * u_view * u_model * vec4(FragPos, 1.0);  // 위치 설정
+    gl_Position = u_projection * u_view * u_model * vec4(aPos, 1.0);
 }
