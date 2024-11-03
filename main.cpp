@@ -24,7 +24,7 @@ std::vector<Face> faces;
 int windowHeight = 1280;
 int windowWidth = 960;
 
-float moving_scale = 0.05;
+float moving_scale = 0.1;
 
 float diffusion_scale = 0.5;
 float specular_scale = 0.5;
@@ -35,6 +35,8 @@ vec3 cameraPos = vec3(0.0f, 0.0f, 3.0f);
 vec3 cameraFront = vec3(0.0f, 0.0f, -1.0f);
 vec3 cameraUp = vec3(0.0f, 1.0f, 0.0f);
 
+float zoomScale = 1.0f;
+
 struct Light {
 	vec3 position;
 	vec3 color;
@@ -42,7 +44,7 @@ struct Light {
 
 vector<Light> lights = {
 	{ vec3(1.2f, 1.0f, 2.0f), vec3(1.0f, 0.0f, 0.0f) },
-	{ vec3(1.2f, -1.0f, 2.0f), vec3(0.0f ,0.0f, 1.0f) }
+	{ vec3(1.2f, -1.0f, 2.0f), vec3(0.0f ,0.0f, 1.0f) },
 };
 
 InstanceManager *manager;
@@ -50,8 +52,10 @@ InstanceManager *manager;
 bool trackingMouse = false;
 bool trackballMove = false;
 
-int lastX, lastY;
+double lastX, lastY;
 bool viewMode = true;
+
+int currentButton = -1;
 
 vec3 mapToSphere(float x, float y) {
 	float nx = (2.0 * x - windowWidth) / windowWidth;
@@ -102,16 +106,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-	if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-		double xpos, ypos;
-		glfwGetCursorPos(window, &xpos, &ypos);
-		lastX = xpos;
-		lastY = ypos;
-
+	if (action == GLFW_PRESS) {
 		trackingMouse = true;
-		// cout << lastX << " " << lastY << endl;
-	} else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+		currentButton = button;
+		glfwGetCursorPos(window, &lastX, &lastY);
+	} else if (action == GLFW_RELEASE) {
 		trackingMouse = false;
+		currentButton = -1;
 	}
 }
 
@@ -120,9 +121,38 @@ void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
 		vec3 p1 = mapToSphere(lastX, lastY);
 		vec3 p2 = mapToSphere(xpos, ypos);
 
-		vec3 axis = cross(p1, p2);
-		float angle = acos(dot(normalize(p1), normalize(p2)));
+		if (currentButton == GLFW_MOUSE_BUTTON_LEFT) {
+			vec3 axis = normalize(cross(p1, p2));
+			float angle = acos(dot(p1, p2)) * 50.0f;
 
+			if (length(axis) < 0.001f || abs(angle) < 0.001f || isnan(angle)) return;
+
+			mat4 rotationMatrix = mat4(1.0f);
+    		if (abs(axis.x) > 0.001f) rotationMatrix = RotateX(angle * axis.x) * rotationMatrix;
+    		if (abs(axis.y) > 0.001f) rotationMatrix = RotateY(angle * axis.y) * rotationMatrix;
+    		if (abs(axis.z) > 0.001f) rotationMatrix = RotateZ(angle * axis.z) * rotationMatrix;
+
+			vec4 cameraFront_4 = rotationMatrix * vec4(cameraFront, 1.0f);
+			vec4 cameraUp_4 = rotationMatrix * vec4(cameraUp, 1.0f);
+
+			cameraFront = normalize(vec3(cameraFront_4.x, cameraFront_4.y, cameraFront_4.z));
+			cameraUp = normalize(vec3(cameraUp_4.x, cameraUp_4.y, cameraUp_4.z));
+		} else if (currentButton == GLFW_MOUSE_BUTTON_MIDDLE) {
+			float panSpeed = 0.01;
+			vec2 delta = vec2(xpos - lastX, ypos - lastY) * panSpeed;
+			vec3 right = normalize(cross(cameraFront, cameraUp));
+			cameraPos += right * delta.x;
+			cameraPos -= cameraUp * delta.y;
+		} else if (currentButton == GLFW_MOUSE_BUTTON_RIGHT) {
+			float zoomSpeed = 0.1f;
+			float delta = (ypos - lastY) * zoomSpeed;
+			if (viewMode) {
+				cameraPos += delta * cameraFront;
+			} else {
+				zoomScale += delta * 0.1f;
+				zoomScale = min(max(0.1f, zoomScale), 10.0f);
+			}
+		}
 		lastX = xpos;
 		lastY = ypos;
 	}
@@ -174,7 +204,10 @@ void renderScene()
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	mat4 projectionMatrix = viewMode ? system::perspective(system::toRadian(45.0f), (float)windowHeight / (float)windowWidth, 0.1f, 100.0f) : system::ortho(-1.0f, 1.0f, -1.0f, 1.0f, 0.1f, 100.0f);
+	float aspectRatio = (float)windowHeight / (float)windowWidth;
+
+	mat4 projectionMatrix = viewMode ? system::perspective(system::toRadian(45.0f), aspectRatio, 0.1f, 100.0f) : 
+									   system::ortho(-zoomScale * aspectRatio, zoomScale * aspectRatio, -zoomScale, zoomScale, -10.0f, 10.0f);
 	mat4 viewMatrix = system::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
 	manager->renderAll(viewMatrix, projectionMatrix);

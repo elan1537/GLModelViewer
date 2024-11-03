@@ -18,4 +18,4 @@ make assign_1
 - [x] View point switch (Ortho <-> Perspective)
 - [x] Phong illumination with Shader
 - [x] Changing shading params using Keyboard interaction
-- [ ] Virtual Trackball
+- [x] Virtual Trackball
