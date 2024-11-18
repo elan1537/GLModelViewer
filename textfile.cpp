@@ -2,11 +2,13 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include "textfile.h"
+#include <textfile.h>
 
-string readFile(const char* filePath) {
+string readFile(const char *filePath)
+{
 	ifstream file(filePath);
-	if (!file.is_open()) {
+	if (!file.is_open())
+	{
 		cerr << "Failed to open file: " << filePath << endl;
 		exit(EXIT_FAILURE);
 	}
@@ -19,8 +21,8 @@ GLuint createShaderProgram(const char *vertexShaderPath, const char *fragmentSha
 {
 	string vertexCode = readFile(vertexShaderPath);
 	string fragmentCode = readFile(fragmentShaderPath);
-	const char* vShaderCode = vertexCode.c_str();
-	const char* fShaderCode = fragmentCode.c_str();
+	const char *vShaderCode = vertexCode.c_str();
+	const char *fShaderCode = fragmentCode.c_str();
 
 	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertexShader, 1, &vShaderCode, NULL);
@@ -33,7 +35,7 @@ GLuint createShaderProgram(const char *vertexShaderPath, const char *fragmentSha
 	{
 		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
 		cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
-				  << infoLog << endl;
+			 << infoLog << endl;
 	}
 
 	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -44,7 +46,7 @@ GLuint createShaderProgram(const char *vertexShaderPath, const char *fragmentSha
 	{
 		glGetProgramInfoLog(fragmentShader, 512, NULL, infoLog);
 		cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
-				  << infoLog << endl;
+			 << infoLog << endl;
 	}
 
 	GLuint shaderProgram = glCreateProgram();
@@ -57,7 +59,7 @@ GLuint createShaderProgram(const char *vertexShaderPath, const char *fragmentSha
 	{
 		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
 		cerr << "ERROR::SHADER::PROGRAM::LINK_FAILED\n"
-				  << infoLog << endl;
+			 << infoLog << endl;
 	}
 
 	glDeleteShader(vertexShader);
