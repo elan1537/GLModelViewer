@@ -106,6 +106,13 @@ void MeshReader::loadVerticesFromPLY(const string &filename)
         cout << "\rParsed: " << fixed << setprecision(1) << progress << "%" << flush;
     }
     cout << endl;
+
+    for (int i = 0; i < 10; i++)
+    {
+        GSVertex vertex = this->points[i];
+
+        cout << vertex.x << ", " << vertex.y << ", " << vertex.z << ", " << vertex.f_rest[0] << ", " << vertex.f_rest[1] << ", " << vertex.f_rest[2] << endl;
+    }
 }
 
 Vertex MeshReader::getVertex(int index)
@@ -235,4 +242,17 @@ void MeshReader::calculateVertexNormals()
     {
         vertex.normal = normalize(vertex.normal);
     }
+}
+
+string MeshReader::readFile(const char *filePath)
+{
+    ifstream file(filePath);
+    if (!file.is_open())
+    {
+        cerr << "Failed to open file: " << filePath << endl;
+        exit(EXIT_FAILURE);
+    }
+    stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
 }

@@ -5,8 +5,8 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <string>
 
-#include <textfile.h>
 #include <Angel.h>
 #include <happly/happly.h>
 
@@ -66,5 +66,6 @@ private:
     void parsingMesh(string meshCode);
     void loadVerticesFromPLY(const string &filename);
     void calculateVertexNormals();
+    string readFile(const char *filePath);
 };
 #endif
