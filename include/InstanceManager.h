@@ -2,21 +2,23 @@
 #define INSTANCEMANAGER_H
 
 #include <vector>
+#include "Shader.h"
 #include "Object.h"
 #include <GL/glew.h>
 #include "Angel.h"
 
-class InstanceManager {
+class InstanceManager
+{
 public:
-    std::vector<Object*> objects;
-    InstanceManager(GLuint shaderProgram);
+    std::vector<Object *> objects;
+    InstanceManager(Shader &shader);
 
-    void addObject(Object* obj);
+    void addObject(Object *obj);
 
     void renderAll();
 
 private:
-    GLuint shaderProgram;
+    Shader &shader;
 };
 
 #endif // INSTANCEMANAGER_H
