@@ -24,6 +24,34 @@ MeshReader::MeshReader(const char *filePath)
     }
 };
 
+MeshReader::MeshReader(const float* vertexArray, size_t arraySize) {
+    // 각 vertex는 3개의 float로 구성됨
+    size_t numVertices = arraySize / 3;
+    
+    // vertex 배열을 순회하면서 Vertex 구조체로 변환
+    for(size_t i = 0; i < numVertices; i += 3) {
+        Vertex vertex;
+        vertex.position = vec3(
+            vertexArray[i * 3],
+            vertexArray[i * 3 + 1],
+            vertexArray[i * 3 + 2]
+        );
+        verticesList.push_back(vertex);
+        
+        // 매 3개의 vertex마다 하나의 face 생성
+        if(i % 3 == 0 && i + 2 < numVertices) {
+            Face face;
+            face.v1 = i;
+            face.v2 = i + 1;
+            face.v3 = i + 2;
+            facesList.push_back(face);
+        }
+    }
+    
+    // 법선 벡터 계산
+    calculateVertexNormals();
+}
+
 vector<GSVertex> MeshReader::getPoints()
 {
     return this->points;

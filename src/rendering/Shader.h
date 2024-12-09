@@ -14,6 +14,7 @@ class Shader
 public:
     Shader(const char *vertexPath, const char *fragmentPath)
     {
+        std::cout << vertexPath << " " << fragmentPath << std::endl;
         std::string vertexCode;
         std::string fragmentCode;
         std::ifstream vShaderFile;

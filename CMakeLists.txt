@@ -1,69 +1,78 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.16.3)
+cmake_minimum_required(VERSION 3.16.3)
 
-SET(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-PROJECT(GSViewer)
+project(GS_VIEWER)
 
-# 공통 include / link directories
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include) 
+### GLAD 설정 ###
+set(GLAD_DIR ${CMAKE_SOURCE_DIR}/external/glad)
+add_library(glad STATIC ${GLAD_DIR}/src/glad.c)
+target_include_directories(glad PUBLIC ${GLAD_DIR}/include)
 
-# Add source files
-FILE(GLOB SRC *.cpp)
-FILE(GLOB HDR *.h *.frag *.vert)
+### IMGUI 설정 ###
+set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/external/imgui)
 
-# MacOS에서 GLFW 사용
-IF (APPLE)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
-  
-  # Homebrew를 사용하여 GLFW와 GLEW 경로 설정
-  INCLUDE_DIRECTORIES(/opt/homebrew/include)
-  LINK_DIRECTORIES(/opt/homebrew/lib)
+file(GLOB IMGUI_SOURCES
+    ${IMGUI_DIR}/*.cpp
+    ${IMGUI_DIR}/*.h
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
 
-  # OpenGL과 GLFW 라이브러리 링크
-  FIND_PACKAGE(OpenGL REQUIRED)
-  SET(EXTERNAL_LINK_LIBS OpenGL::GL /opt/homebrew/lib/libglfw.3.dylib GLEW)
+add_library(imgui STATIC ${IMGUI_SOURCES})
+target_include_directories(imgui PUBLIC
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+)
 
-  file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shader)
+### 프로젝트 소스 설정 ###
+file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/src/*.c)
+file(GLOB_RECURSE SRC_HEADERS ${CMAKE_SOURCE_DIR}/src/*.h ${CMAKE_SOURCE_DIR}/src/*.hpp)
 
-  file(COPY ${CMAKE_SOURCE_DIR}/shader/vshader.vert 
-      DESTINATION ${CMAKE_BINARY_DIR}/shader)
-  file(COPY ${CMAKE_SOURCE_DIR}/shader/fshader.frag 
-      DESTINATION ${CMAKE_BINARY_DIR}/shader)
+add_executable(GS_VIEWER ${SRC_FILES} ${SRC_HEADERS})
+target_include_directories(GS_VIEWER PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-  # GLFW 경로 설정
-  ADD_EXECUTABLE(gs_viewer ${SRC} ${HDR})
-  TARGET_LINK_LIBRARIES(gs_viewer ${EXTERNAL_LINK_LIBS})
+### OS별 설정 ###
+if(APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+    include_directories(/opt/homebrew/include)
+    link_directories(/opt/homebrew/lib)
 
-  add_executable(test_plyreader 
-    tests/test_plyread.cpp
-  )
+    find_package(OpenGL REQUIRED)
 
-  add_executable(test_meshreader tests/test_meshreader.cpp MeshReader.cpp textfile.cpp)
-  target_link_libraries(test_meshreader ${EXTERNAL_LINK_LIBS})
+    # Homebrew를 통해 glfw가 설치되었다고 가정. (만약 find_package로 처리 가능하면 사용)
+    # 예: find_library(GLFW_LIB glfw3 HINTS /opt/homebrew/lib)
+    set(EXTERNAL_LINK_LIBS OpenGL::GL /opt/homebrew/lib/libglfw.3.dylib imgui glad)
 
-# Windows에서 freeglut 사용
-ELSEIF (WIN32)
-  # Windows 전용 설정
-  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/freeglut/include ${CMAKE_SOURCE_DIR}/glew/inc/)
-  LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/freeglut/lib ${CMAKE_SOURCE_DIR}/glew/lib)
+    # 쉐이더 복사
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
+    file(COPY ${CMAKE_SOURCE_DIR}/shaders/gaussian.vert DESTINATION ${CMAKE_BINARY_DIR}/shaders)
+    file(COPY ${CMAKE_SOURCE_DIR}/shaders/gaussian.frag DESTINATION ${CMAKE_BINARY_DIR}/shaders)
 
-  # freeglut과 GLEW 라이브러리 링크
-  SET(EXTERNAL_LINK_LIBS freeglut.lib glew32.lib)
+    target_link_libraries(GS_VIEWER PRIVATE ${EXTERNAL_LINK_LIBS})
+elseif (WIN32)
+    # 윈도우의 경우 OpenGL, glfw, imgui, glad 경로를 상황에 맞게 설정해야 함
+    # 예를 들어, glfw를 별도로 설치했거나 vcpkg 사용 시 find_package(glfw3 CONFIG REQUIRED) 등
+    # 아래는 예시
+    find_package(OpenGL REQUIRED)
+    # find_package(glfw3 REQUIRED) 등
+    # 예: set(EXTERNAL_LINK_LIBS OpenGL::GL glfw imgui glad)
+    
+    # 쉐이더 복사
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
+    file(COPY ${CMAKE_SOURCE_DIR}/shaders/gaussian.vert DESTINATION ${CMAKE_BINARY_DIR}/shaders)
+    file(COPY ${CMAKE_SOURCE_DIR}/shaders/gaussian.frag DESTINATION ${CMAKE_BINARY_DIR}/shaders)
 
-  ADD_EXECUTABLE(gs_viewer ${SRC} ${HDR})
-  TARGET_LINK_LIBRARIES(gs_viewer ${EXTERNAL_LINK_LIBS})
+    target_link_libraries(GS_VIEWER PRIVATE ${EXTERNAL_LINK_LIBS})
+elseif(UNIX)
+    find_package(OpenGL REQUIRED)
+    # find_package(glfw3 REQUIRED)
+    # set(EXTERNAL_LINK_LIBS OpenGL::GL glfw imgui glad)
 
-  FILE(GLOB_RECURSE DLLS ${CMAKE_SOURCE_DIR}/freeglut/*.dll ${CMAKE_SOURCE_DIR}/glew/*.dll)
-  SOURCE_GROUP("DLL Files" FILES ${DLLS})
-  FILE(COPY ${DLLS} DESTINATION ${CMAKE_BINARY_DIR})
-  file(COPY ${CMAKE_SOURCE_DIR}/shader/vshader.vert 
-      DESTINATION ${CMAKE_BINARY_DIR})
-  file(COPY ${CMAKE_SOURCE_DIR}/shader/fshader.frag 
-      DESTINATION ${CMAKE_BINARY_DIR})
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
+    file(COPY ${CMAKE_SOURCE_DIR}/shaders/gaussian.vert DESTINATION ${CMAKE_BINARY_DIR}/shaders)
+    file(COPY ${CMAKE_SOURCE_DIR}/shaders/gaussian.frag DESTINATION ${CMAKE_BINARY_DIR}/shaders)
 
-# Linux (추가적인 설정 필요시)
-ELSEIF (UNIX)
-  # Linux 전용 설정을 여기에 추가할 수 있습니다.
-ENDIF ()
-
+    target_link_libraries(GS_VIEWER PRIVATE ${EXTERNAL_LINK_LIBS})
+endif()

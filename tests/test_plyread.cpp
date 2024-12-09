@@ -170,4 +170,4 @@ int main()
     auto vertices = loadVerticesFromPLY("../model/livinglab.ply");
 
     cout << vertices[0].x << vertices[0].y << vertices[0].z << endl;
-}
+ }

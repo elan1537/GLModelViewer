@@ -47,6 +47,7 @@ class MeshReader
 {
 public:
     MeshReader(const char *filePath);
+    MeshReader(const float* vertexArray, size_t arraySize);
     Vertex getVertex(int index);
     Face getFace(int index);
     vector<Vertex> getVertexFromFace(int faceIndex);
