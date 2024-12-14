@@ -8,7 +8,7 @@ class WindowManager {
         ~WindowManager();
 
         bool Init(int width, int height, const char* title);
-        void PoolEvents();
+        void PollEvents();
         void SwapBuffers();
         bool ShouldClose() const;
 
