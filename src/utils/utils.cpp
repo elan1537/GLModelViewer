@@ -94,4 +94,25 @@ namespace utils
     {
         return 2 * atan(pixels / (2.0 * focal));
     }
+
+    // utils.cpp 내 구현 예제
+    mat3 RotateMatrix(const vec3 &axis, float angle)
+    {
+        vec3 u = normalize(axis);
+        float x = u.x;
+        float y = u.y;
+        float z = u.z;
+
+        float c = cos(angle);
+        float s = sin(angle);
+        float one_c = 1.0f - c;
+
+        // Rodrigues' rotation formula에 따른 회전행렬
+        mat3 R = mat3(
+            c + x * x * one_c, x * y * one_c - z * s, x * z * one_c + y * s,
+            y * x * one_c + z * s, c + y * y * one_c, y * z * one_c - x * s,
+            z * x * one_c - y * s, z * y * one_c + x * s, c + z * z * one_c);
+
+        return R;
+    }
 }

@@ -5,6 +5,7 @@ bool InputHandler::s_Keys[1024];
 bool InputHandler::s_MouseButtons[8];
 double InputHandler::s_MouseX = 0.0;
 double InputHandler::s_MouseY = 0.0;
+float InputHandler::s_ScrollOffset = 0.0f;
 
 void InputHandler::Init(GLFWwindow *window)
 {
@@ -13,7 +14,20 @@ void InputHandler::Init(GLFWwindow *window)
     glfwSetKeyCallback(window, KeyCallback);
     glfwSetCursorPosCallback(window, MouseMoveCallback);
     glfwSetMouseButtonCallback(window, MouseButtonCallback);
-    // 필요하다면 glfwSetScrollCallback 등 추가 가능
+    glfwSetScrollCallback(window, ScrollCallback);
+}
+
+float InputHandler::GetScrollOffset()
+{
+    float offset = s_ScrollOffset;
+    s_ScrollOffset = 0.0f; // 한번 읽었으면 리셋(혹은 누적 값을 유지하고 싶다면 이 부분은 상황에 맞게 변경)
+    return offset;
+}
+
+// GLFW scroll callback에서 s_ScrollOffset 업데이트
+void InputHandler::ScrollCallback(GLFWwindow *window, double xoffset, double yoffset)
+{
+    s_ScrollOffset += (float)yoffset;
 }
 
 void InputHandler::KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)

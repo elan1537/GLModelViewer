@@ -11,4 +11,5 @@ namespace utils
     vec4 vector_to_vec4(const std::vector<double> &v);
     double fov2focal(double fov, double pixels);
     double focal2fov(double focal, double pixels);
+    mat3 RotateMatrix(const vec3 &axis, float angle);
 }

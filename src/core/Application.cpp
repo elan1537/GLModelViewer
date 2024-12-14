@@ -19,6 +19,7 @@
 Application::Application() : m_Running(false) {}
 Application::~Application() {}
 
+vec2 previous_pan_pos;
 vec2 previous_mouse_pos;
 
 bool Application::Init()
@@ -67,28 +68,37 @@ bool Application::Init()
 
 void Application::UpdateCamera()
 {
-    // forward, right 벡터 계산
+    // Step 1: Calculate forward, right, up
     vec3 forward = normalize(m_Camera->target - m_Camera->position);
     vec3 right = normalize(cross(forward, m_Camera->up));
-    // 필요한 경우 up 벡터 재정리:
-    // vec3 up = cross(right, forward);
-    // m_Camera->up = up; // up을 재계산해서 유지하고 싶다면
+    vec3 up = cross(right, forward);
+    m_Camera->up = normalize(up); // up 벡터 정규화 (ensure orthogonality)
 
+    float moveSpeed = 0.06f;
+    float rotateSpeed = 1.0f;
+    float zoomSpeed = 0.1f;
+    float panSpeed = 0.1f;
+
+    // Step 2: Keyboard movement (W,A,S,D)
     if (InputHandler::IsKeyPressed(GLFW_KEY_W))
     {
-        m_Camera->position += forward * 0.06f;
-    }
-    if (InputHandler::IsKeyPressed(GLFW_KEY_A))
-    {
-        m_Camera->position -= right * 0.06f; // 왼쪽이므로 right의 반대방향
+        m_Camera->position += forward * moveSpeed;
+        m_Camera->target += forward * moveSpeed;
     }
     if (InputHandler::IsKeyPressed(GLFW_KEY_S))
     {
-        m_Camera->position -= forward * 0.06f;
+        m_Camera->position -= forward * moveSpeed;
+        m_Camera->target -= forward * moveSpeed;
+    }
+    if (InputHandler::IsKeyPressed(GLFW_KEY_A))
+    {
+        m_Camera->position -= right * moveSpeed;
+        m_Camera->target -= right * moveSpeed;
     }
     if (InputHandler::IsKeyPressed(GLFW_KEY_D))
     {
-        m_Camera->position += right * 0.06f; // 오른쪽 방향 이동
+        m_Camera->position += right * moveSpeed;
+        m_Camera->target += right * moveSpeed;
     }
 
     // 현재 마우스 위치 정규화
@@ -99,7 +109,6 @@ void Application::UpdateCamera()
 
     if (InputHandler::s_MouseButtons[GLFW_MOUSE_BUTTON_LEFT])
     {
-        // 마우스가 움직였을 때만 회전 계산
         if (current_mouse_pos != previous_mouse_pos)
         {
             float z0 = utils::getZFromXY(previous_mouse_pos);
@@ -111,49 +120,52 @@ void Application::UpdateCamera()
             vec3 axis = cross(p0, p1);
             float d = dot(p0, p1);
             d = std::max(-1.0f, std::min(1.0f, d));
-            float angle = acos(d);
+            float angle = acos(d) * rotateSpeed;
 
             if (length(axis) > 1e-6f && fabs(angle) > 1e-6f)
             {
-                vec3 k = normalize(axis);
-                float x = k.x;
-                float y = k.y;
-                float z = k.z;
-                float c = cos(angle);
-                float s = sin(angle);
-                float one_c = 1.0f - c;
+                axis = normalize(axis);
 
-                mat3 R(1.0f);
-                R[0][0] = c + x * x * one_c;
-                R[0][1] = x * y * one_c - z * s;
-                R[0][2] = x * z * one_c + y * s;
+                // 회전은 타겟을 중심으로 카메라 position을 회전하는 방식으로 변경
+                vec3 camToTarget = m_Camera->position - m_Camera->target;
+                mat3 R = utils::RotateMatrix(axis, angle);
+                camToTarget = R * camToTarget;
+                m_Camera->position = m_Camera->target + camToTarget;
 
-                R[1][0] = y * x * one_c + z * s;
-                R[1][1] = c + y * y * one_c;
-                R[1][2] = y * z * one_c - x * s;
-
-                R[2][0] = z * x * one_c - y * s;
-                R[2][1] = z * y * one_c + x * s;
-                R[2][2] = c + z * z * one_c;
-
-                // 회전 적용
-                forward = normalize(R * forward);
-                m_Camera->up = normalize(R * m_Camera->up);
+                // up 벡터도 회전
+                m_Camera->up = R * m_Camera->up;
             }
 
-            // 회전 적용 후 현재 마우스 위치를 이전 위치로 갱신
             previous_mouse_pos = current_mouse_pos;
         }
     }
     else
     {
-        // 마우스 버튼이 눌리지 않은 상태에서도 previous를 업데이트
         previous_mouse_pos = current_mouse_pos;
     }
 
-    // 카메라 뷰 행렬 업데이트
+    // Step 4: Mouse Zoom (Scroll)
+    float scroll = InputHandler::GetScrollOffset(); // 구현 필요
+    if (scroll != 0.0f)
+    {
+        // forward 방향으로 zoom
+        vec3 dir = normalize(m_Camera->target - m_Camera->position);
+        float distance = scroll * zoomSpeed;
+        m_Camera->position += dir * distance;
+        m_Camera->target += dir * distance;
+    }
 
-    m_Camera->target = m_Camera->position + forward;
+    // Step 5: Mouse Pan (e.g. Middle mouse drag)
+    if (InputHandler::s_MouseButtons[GLFW_MOUSE_BUTTON_MIDDLE])
+    {
+        vec2 mouseDelta = (current_mouse_pos - previous_pan_pos) * panSpeed;
+        // 마우스 움직임에 따라 right, up 방향으로 이동
+        m_Camera->position += (right * mouseDelta.x + up * mouseDelta.y);
+        m_Camera->target += (right * mouseDelta.x + up * mouseDelta.y);
+    }
+    previous_pan_pos = current_mouse_pos;
+
+    // Step 6: Recompute view matrix
     m_Camera->pose = LookAt(m_Camera->position, m_Camera->target, m_Camera->up);
 }
 
@@ -172,9 +184,6 @@ void Application::Run()
     cameras[currentCameraIndex].loadImage();
     static bool layoutInitialized = false;
 
-    int winWidth = 800;
-    int winHeight = 600;
-
     while (m_Running && !m_WindowManager->ShouldClose())
     {
         if (InputHandler::IsKeyPressed(GLFW_KEY_ESCAPE))
@@ -186,48 +195,35 @@ void Application::Run()
 
         m_Renderer->Begin();
         {
-            // // 카메라 위치를 조정
-            // mat4 view = LookAt(m_Camera->position, m_Camera->target, m_Camera->up);
-            // mat4 proj = Perspective(30.0f,           // FOV (시야각)
-            //                         800.0f / 600.0f, // 종횡비
-            //                         0.01f,           // near plane
-            //                         100.0f);
-
-            // m_GaussianRenderer->Draw(mat4(1.0f), view, proj);
-            // m_CubeRenderer->Draw(mat4(1.0f), view, proj);
-
             // 화면 클리어(모든 뷰포트 렌더링 전에)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             // 첫 번째 뷰포트 설정
             glViewport(0, WINDOW_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT);
+            float aspect_top = (float)WINDOW_WIDTH / (float)(WINDOW_HEIGHT);
 
             // 첫 번째 뷰포트의 카메라 설정 (예: 현재 m_Camera)
             mat4 view = LookAt(m_Camera->position, m_Camera->target, m_Camera->up);
-            mat4 proj = Perspective(30.0f, (winWidth / 2.0f) / (float)winHeight, 0.01f, 100.0f);
+            mat4 proj = Perspective(30.0f, aspect_top, 0.01f, 100.0f);
 
             m_GaussianRenderer->Draw(mat4(1.0f), view, proj);
+            m_CubeRenderer->Draw(mat4(1.0f), view, proj);
 
-            // 두 번째 뷰포트 설정
+            // 두 번째 뷰포트(하단)
             glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+            float aspect_bottom = (float)WINDOW_WIDTH / (float)(WINDOW_HEIGHT);
 
             // 두 번째 뷰포트용 카메라 설정
-            // 예를 들어 cameras[currentCameraIndex]를 이용해 다른 시점 제공
             mat4 t = cameras[currentCameraIndex].getPose();
             mat3 R = mat3(t[0][0], t[0][1], t[0][2],
                           t[1][0], t[1][1], t[1][2],
                           t[2][0], t[2][1], t[2][2]);
             vec3 t_pos = vec3(t[0][3], t[1][3], t[2][3]);
-            // 여기서 t_pos와 R을 사용해 view 행렬을 생성 (적절한 LookAt 변환)
-            // 카메라의 위치: t_pos, 방향: R 이용하거나 Euler 변환 후 Target 산출
-            // 간단히 말해 t_pos를 카메라 위치로 두고, R에서 바라보는 방향을 추출
-            // (아래는 단순예로, 본인이 구현한 rotmat2euler 등을 활용)
 
-            vec3 forward(R[2][0], R[2][1], R[2][2]); // ROT 행렬에서 z축 방향(또는 다른 축) 사용
-            // 카메라가 바라보는 위치를 t_pos + forward로 가정
+            // 카메라 전방 벡터 추출 (예: R의 z축 사용)
+            vec3 forward(R[2][0], R[2][1], R[2][2]);
             mat4 altView = LookAt(t_pos, t_pos + forward, vec3(0, 1, 0));
-            // 투영행렬도 다른 종횡비에 맞출 수 있음. 여기서는 동일하게 사용
-            mat4 altProj = Perspective(30.0f, (winWidth / 2.0f) / (float)winHeight, 0.01f, 100.0f);
+            mat4 altProj = Perspective(30.0f, aspect_bottom, 0.01f, 100.0f);
 
             m_GaussianRenderer->Draw(mat4(1.0f), altView, altProj);
         }

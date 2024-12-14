@@ -21,7 +21,11 @@ public:
     static double GetMouseX();
     static double GetMouseY();
 
+    static float GetScrollOffset();
+    static void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset);
+
     static bool s_Keys[1024];      // 예제: 최대 1024 키 상태 저장
     static bool s_MouseButtons[8]; // 예제: 8개 마우스 버튼 상태
     static double s_MouseX, s_MouseY;
+    static float s_ScrollOffset;
 };
