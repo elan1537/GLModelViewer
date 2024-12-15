@@ -53,14 +53,14 @@ bool Application::Init()
 
     m_CubeRenderer = std::make_unique<CubeRenderer>();
 
-    std::vector<vec3> positions;
+    std::vector<mat4> poses;
     for (auto &camera : m_DataLoader->getCameras())
     {
-        vec3 pos = vec3(camera.getPose()[0][3], camera.getPose()[1][3], camera.getPose()[2][3]);
-        positions.push_back(pos);
+        mat4 pose = camera.getPose();
+        poses.push_back(pose);
     }
 
-    m_CubeRenderer->Init(positions);
+    m_CubeRenderer->Init(poses);
 
     m_Running = true;
     return true;
@@ -99,6 +99,16 @@ void Application::UpdateCamera()
     {
         m_Camera->position += right * moveSpeed;
         m_Camera->target += right * moveSpeed;
+    }
+    if (InputHandler::IsKeyPressed(GLFW_KEY_Q))
+    {
+        m_Camera->position -= up * moveSpeed;
+        m_Camera->target -= up * moveSpeed;
+    }
+    if (InputHandler::IsKeyPressed(GLFW_KEY_E))
+    {
+        m_Camera->position += up * moveSpeed;
+        m_Camera->target += up * moveSpeed;
     }
 
     // 현재 마우스 위치 정규화
@@ -145,14 +155,14 @@ void Application::UpdateCamera()
     }
 
     // Step 4: Mouse Zoom (Scroll)
-    float scroll = InputHandler::GetScrollOffset(); // 구현 필요
+    float scroll = InputHandler::GetScrollOffset();
     if (scroll != 0.0f)
     {
         // forward 방향으로 zoom
         vec3 dir = normalize(m_Camera->target - m_Camera->position);
         float distance = scroll * zoomSpeed;
         m_Camera->position += dir * distance;
-        m_Camera->target += dir * distance;
+        // m_Camera->target += dir * distance;
     }
 
     // Step 5: Mouse Pan (e.g. Middle mouse drag)
@@ -195,19 +205,15 @@ void Application::Run()
 
         m_Renderer->Begin();
         {
-            // 화면 클리어(모든 뷰포트 렌더링 전에)
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
             // 첫 번째 뷰포트 설정
             glViewport(0, WINDOW_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT);
             float aspect_top = (float)WINDOW_WIDTH / (float)(WINDOW_HEIGHT);
 
             // 첫 번째 뷰포트의 카메라 설정 (예: 현재 m_Camera)
-            mat4 view = LookAt(m_Camera->position, m_Camera->target, m_Camera->up);
             mat4 proj = Perspective(30.0f, aspect_top, 0.01f, 100.0f);
 
-            m_GaussianRenderer->Draw(mat4(1.0f), view, proj);
-            m_CubeRenderer->Draw(mat4(1.0f), view, proj);
+            m_GaussianRenderer->Draw(m_Camera->pose, proj, vec4(0, WINDOW_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT), vec2(0.01f, 100.0f));
+            m_CubeRenderer->Draw(mat4(1.0f), m_Camera->pose, proj);
 
             // 두 번째 뷰포트(하단)
             glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -225,7 +231,8 @@ void Application::Run()
             mat4 altView = LookAt(t_pos, t_pos + forward, vec3(0, 1, 0));
             mat4 altProj = Perspective(30.0f, aspect_bottom, 0.01f, 100.0f);
 
-            m_GaussianRenderer->Draw(mat4(1.0f), altView, altProj);
+            m_GaussianRenderer->Draw(altView, altProj, vec4(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT), vec2(0.01f, 100.0f));
+            // m_CubeRenderer->Draw(mat4(1.0f), altView, altProj);
         }
         m_Renderer->End();
 
@@ -251,6 +258,7 @@ void Application::Run()
                 if (currentCameraIndex >= cameras.size())
                     currentCameraIndex = 0;
                 cameras[currentCameraIndex].loadImage();
+                m_CubeRenderer->SetSelectedIndex(currentCameraIndex);
             }
             ImGui::SameLine();
             if (ImGui::Button("Previous Camera"))
@@ -260,6 +268,7 @@ void Application::Run()
                 if (currentCameraIndex < 0)
                     currentCameraIndex = cameras.size() - 1;
                 cameras[currentCameraIndex].loadImage();
+                m_CubeRenderer->SetSelectedIndex(currentCameraIndex);
             }
 
             mat4 t = cameras[currentCameraIndex].getPose();

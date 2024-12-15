@@ -22,11 +22,11 @@ struct GSPoint
 {
     vec3 position;
     vec3 normal;
-    SH<3> shs;
-    vec4 color;
     float opacity;
+    // vec3 color;
     vec3 scale;
     vec4 rotation;
+    SH<3> shs;
 };
 
 class SplatData

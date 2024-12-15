@@ -9,14 +9,19 @@ Renderer::~Renderer() {}
 
 bool Renderer::Init()
 {
-    glEnable(GL_PROGRAM_POINT_SIZE);
     return true;
 }
 
 void Renderer::Begin()
 {
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
     glEnable(GL_DEPTH_TEST);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 }
 
 void Renderer::End()

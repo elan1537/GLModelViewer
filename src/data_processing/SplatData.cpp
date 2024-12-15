@@ -68,7 +68,7 @@ bool SplatData::loadGaussiansFromPLY(const std::string &plyFile)
 
         // SH: f_dc_0..2(3 floats) + f_rest_0..44(45 floats) 총 48 floats
         reader.read((char *)&p.shs.shs[0], sizeof(float) * 48);
-        p.color = vec4(p.shs.shs[0], p.shs.shs[1], p.shs.shs[2], 1.0f);
+        // p.color = vec4(p.shs.shs[0], p.shs.shs[1], p.shs.shs[2], 1.0f);
 
         // opacity
         float opacity;
