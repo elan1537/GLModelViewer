@@ -6,7 +6,7 @@
 class Shader
 {
 public:
-    Shader(const char *vertexPath, const char *fragmentPath);
+    Shader(const char *vertexPath, const char *fragmentPath, const char *geometryPath = nullptr);
 
     void use();
     void setBool(const std::string &name, bool value) const
