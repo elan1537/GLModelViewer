@@ -1,4 +1,4 @@
-#version 410 core
+#version 460 core
 
 // Gaussian Parameters
 layout (location = 0) in vec3 aPos;
@@ -170,6 +170,6 @@ void main() {
     vec3 v = normalize(aPos - eye);
     vec3 radiance = ComputeRadianceFromSH(v, r_sh, g_sh, b_sh);
 
-    geom_color = vec4(radiance, 0.01);
+    geom_color = vec4(radiance, aOpacity);
     gl_Position = p4;
 }
