@@ -5,15 +5,23 @@
 
 CubeRenderer::CubeRenderer()
 {
-    // 생성 시 VAO/VBO 생성
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
     glGenVertexArrays(1, &sphereVAO);
     glGenBuffers(1, &sphereVBO);
 
-    shader = std::make_unique<Shader>("shaders/cube.vert", "shaders/cube.frag");
-    std::cout << "Shader ID: " << shader->getID() << std::endl;
+    glGenVertexArrays(1, &gridVAO);
+    glGenBuffers(1, &gridVBO);
+    glGenBuffers(1, &gridColorVBO);
+
+    // sphere/line용 셰이더 (uniform color)
+    shader = std::make_unique<Shader>("shaders/cube_uniform_color.vert", "shaders/cube.frag");
+    // grid용 셰이더 (attribute color)
+    gridShader = std::make_unique<Shader>("shaders/cube.vert", "shaders/cube.frag");
+
+    // cube_uniform_color.vert는 u_color를 uniform으로 받는 버전
+    std::cout << "Shader ID: " << shader->getID() << ", GridShader ID: " << gridShader->getID() << std::endl;
 }
 
 CubeRenderer::~CubeRenderer()
@@ -23,41 +31,53 @@ CubeRenderer::~CubeRenderer()
 
     glDeleteBuffers(1, &sphereVBO);
     glDeleteVertexArrays(1, &sphereVAO);
+
+    glDeleteBuffers(1, &gridVBO);
+    glDeleteBuffers(1, &gridColorVBO);
+    glDeleteVertexArrays(1, &gridVAO);
 }
 
-bool CubeRenderer::Init(const std::vector<vec3> &positions)
+bool CubeRenderer::Init(const std::vector<mat4> &poses)
 {
-    _positions = positions;
+    _poses = poses;
+
+    // 포즈들 사이 선을 생성
     _lines.clear();
-
-    // positions 사이를 선분으로 이음
-    for (size_t i = 0; i + 1 < _positions.size(); ++i)
+    for (size_t i = 0; i + 1 < _poses.size(); ++i)
     {
-        _lines.push_back(_positions[i]);
-        _lines.push_back(_positions[i + 1]);
+        vec3 pos0(_poses[i][0][3], _poses[i][1][3], _poses[i][2][3]);
+        vec3 pos1(_poses[i + 1][0][3], _poses[i + 1][1][3], _poses[i + 1][2][3]);
+        _lines.push_back(pos0);
+        _lines.push_back(pos1);
     }
 
-    std::cout << "lines size: " << _lines.size() << std::endl;
-    for (unsigned int i = 0; i < _lines.size(); i++)
-    {
-        std::cout << "line " << i << ": " << _lines[i] << std::endl;
-    }
-
-    // 라인용 VAO/VBO 설정
+    // 라인 VBO 설정
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * _lines.size(), _lines.data(), GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(0); // 위치
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void *)0);
     glBindVertexArray(0);
 
-    // 구 지오메트리 생성
-    // stacks=16, slices=16 정도로 설정 (적절히 변경 가능)
-    GenerateSphere(_sphereVertices, 16, 16, 1.0f);
-    _sphereVertCount = static_cast<GLsizei>(_sphereVertices.size());
+    // 그리드 생성
+    GenerateGrid();
+    glBindVertexArray(gridVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * _gridVertices.size(), _gridVertices.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void *)0);
 
-    // 구용 VAO/VBO 설정
+    glBindBuffer(GL_ARRAY_BUFFER, gridColorVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * _gridColors.size(), _gridColors.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(1); // 색상 attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void *)0);
+
+    glBindVertexArray(0);
+
+    // 구 지오메트리 생성
+    GenerateSphere(_sphereVertices, 16, 16, 1.0f);
+    _sphereVertCount = (GLsizei)_sphereVertices.size();
+
     glBindVertexArray(sphereVAO);
     glBindBuffer(GL_ARRAY_BUFFER, sphereVBO);
     glBufferData(GL_ARRAY_BUFFER, _sphereVertices.size() * sizeof(vec3), _sphereVertices.data(), GL_STATIC_DRAW);
@@ -71,25 +91,56 @@ bool CubeRenderer::Init(const std::vector<vec3> &positions)
 
 void CubeRenderer::Draw(const mat4 model, const mat4 view, const mat4 proj)
 {
-    shader->use();
+    // 1. Grid 렌더링 (attribute color 사용)
+    gridShader->use();
+    gridShader->setMat4("u_view", view);
+    gridShader->setMat4("u_proj", proj);
 
+    glBindVertexArray(gridVAO);
+
+    for (auto &pose : _poses)
+    {
+        mat4 gridModel = pose * Scale(0.05f, 0.05f, 0.05f);
+        gridShader->setMat4("u_model", gridModel);
+        glDrawArrays(GL_LINES, 0, (GLsizei)_gridVertices.size());
+    }
+
+    // 2. Lines 렌더링 (uniform color 사용)
+    // sphere/line용 셰이더 사용
+
+    shader->use();
     shader->setMat4("u_view", view);
     shader->setMat4("u_proj", proj);
 
-    // 먼저 라인 렌더링
-    shader->setVec3("u_color", vec3(1.0f, 0.0f, 0.0f)); // 라인 색상: 빨강
+    // line은 uniform color 사용 (예: 초록색)
+    shader->setVec3("u_color", LINE_COLOR);
     shader->setMat4("u_model", mat4(1.0f));
     glBindVertexArray(VAO);
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(_lines.size()));
+    glDrawArrays(GL_LINES, 0, (GLsizei)_lines.size());
 
-    // 각 위치마다 구 렌더링
-    shader->setVec3("u_color", vec3(0.0f, 0.0f, 1.0f)); // 구 색상: 파랑
+    // 3. Sphere 렌더링 (uniform color 사용)
+
     glBindVertexArray(sphereVAO);
-    for (auto &pos : _positions)
+    for (size_t i = 0; i < _poses.size(); i++)
     {
-        // 위치 pos에 조그마한 구 렌더링
-        mat4 sphereModel = Translate(pos) * Scale(0.05f, 0.05f, 0.05f);
+        const mat4 &pose = _poses[i];
+        vec3 pos(pose[0][3], pose[1][3], pose[2][3]);
+        mat4 sphereModel = Translate(pos);
+
+        // selectIndex인 경우 SELECTED_COLOR, 아니면 UNSELECTED_COLOR
+        if ((int)i == selectedIndex)
+        {
+            sphereModel = sphereModel * Scale(0.01f, 0.01f, 0.01f);
+            shader->setVec3("u_color", SELECTED_COLOR);
+        }
+        else
+        {
+            sphereModel = sphereModel * Scale(0.01f, 0.01f, 0.01f);
+            shader->setVec3("u_color", UNSELECTED_COLOR);
+        }
+
         shader->setMat4("u_model", sphereModel);
+
         glDrawArrays(GL_TRIANGLES, 0, _sphereVertCount);
     }
 
@@ -146,4 +197,28 @@ void CubeRenderer::GenerateSphere(std::vector<vec3> &sphereVerts, int stacks, in
             sphereVerts.push_back(v3);
         }
     }
+}
+
+void CubeRenderer::GenerateGrid()
+{
+    _gridVertices.clear();
+    _gridColors.clear();
+
+    // x축
+    _gridVertices.push_back(vec3(0.0f, 0.0f, 0.0f));
+    _gridVertices.push_back(vec3(1.0f, 0.0f, 0.0f));
+    _gridColors.push_back(vec3(1.0f, 0.0f, 0.0f));
+    _gridColors.push_back(vec3(1.0f, 0.0f, 0.0f));
+
+    // y축
+    _gridVertices.push_back(vec3(0.0f, 0.0f, 0.0f));
+    _gridVertices.push_back(vec3(0.0f, 1.0f, 0.0f));
+    _gridColors.push_back(vec3(0.0f, 1.0f, 0.0f));
+    _gridColors.push_back(vec3(0.0f, 1.0f, 0.0f));
+
+    // z축
+    _gridVertices.push_back(vec3(0.0f, 0.0f, 0.0f));
+    _gridVertices.push_back(vec3(0.0f, 0.0f, 1.0f));
+    _gridColors.push_back(vec3(0.0f, 0.0f, 1.0f));
+    _gridColors.push_back(vec3(0.0f, 0.0f, 1.0f));
 }
