@@ -96,6 +96,26 @@ bool GaussianRenderer::Init(const std::vector<GSPoint> &points)
 
     glBindVertexArray(0);
 
+    std::vector<uint32_t> keys(numPoints, 0);
+    std::vector<uint32_t> vals(numPoints);
+
+    for (uint32_t i = 0; i < numPoints; i++)
+        vals[i] = i;
+
+    GLuint keyBuffer;
+    glGenBuffers(1, &keyBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, keyBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, keys.size() * sizeof(uint32_t), keys.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, keyBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    GLuint valBuffer;
+    glGenBuffers(1, &valBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, valBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, vals.size() * sizeof(uint32_t), vals.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, valBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
     return true;
 }
 

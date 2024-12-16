@@ -206,7 +206,7 @@ void Application::Run()
         m_Renderer->Begin();
         {
             // 첫 번째 뷰포트 설정
-            glViewport(0, WINDOW_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT);
+            glViewport(0, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
             float aspect_top = (float)WINDOW_WIDTH / (float)(WINDOW_HEIGHT);
 
             // 첫 번째 뷰포트의 카메라 설정 (예: 현재 m_Camera)
@@ -216,7 +216,7 @@ void Application::Run()
             m_CubeRenderer->Draw(mat4(1.0f), m_Camera->pose, proj);
 
             // 두 번째 뷰포트(하단)
-            glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+            glViewport(0, 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
             float aspect_bottom = (float)WINDOW_WIDTH / (float)(WINDOW_HEIGHT);
 
             // 두 번째 뷰포트용 카메라 설정
@@ -232,7 +232,7 @@ void Application::Run()
             mat4 altProj = Perspective(30.0f, aspect_bottom, 0.01f, 100.0f);
 
             m_GaussianRenderer->Draw(altView, altProj, vec4(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT), vec2(0.01f, 100.0f));
-            // m_CubeRenderer->Draw(mat4(1.0f), altView, altProj);
+            m_CubeRenderer->Draw(mat4(1.0f), altView, altProj);
         }
         m_Renderer->End();
 
