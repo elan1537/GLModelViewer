@@ -6,9 +6,10 @@ layout (location = 1) in vec3 aNormal;
 layout (location = 2) in float aOpacity;
 layout (location = 3) in vec3 aScale;
 layout (location = 4) in vec4 aRot;
+layout (std430, binding = 5) buffer SHBuffer {
+    float shData[];
+};
 
-uniform samplerBuffer u_shBuffer; // SH 데이터용 texture buffer
-const int SH_SIZE = 48; // SH<3> 크기
 
 uniform mat4 viewMat;
 uniform mat4 projMat;
@@ -17,8 +18,8 @@ uniform vec4 viewport;
 uniform vec3 eye;
 
 // Geometry Shader로 전달할 varyings
-out vec2 geom_pos; // 2D Position
-out vec4 geom_cov2D; // 2D Covariance Matrix
+// out vec2 geom_pos; // 2D Position
+// out vec4 geom_cov2D; // 2D Covariance Matrix
 out vec4 geom_color; // radiance (R,G,B,A)
 
 mat3 quatToMat3(vec4 q) {
@@ -87,11 +88,56 @@ vec3 ComputeRadianceFromSH(const vec3 v, const float r_sh[16], const float g_sh[
     float gr = 0.0f;
     float bl = 0.0f;
 
-    for(int i=0; i<16; i++) {
-        re += b[i] * r_sh[i];
-        gr += b[i] * g_sh[i];
-        bl += b[i] * b_sh[i];
-    }
+    re += b[0] * r_sh[0];
+    re += b[1] * r_sh[1];
+    re += b[2] * r_sh[2];
+    re += b[3] * r_sh[3];
+    re += b[4] * r_sh[4];
+    re += b[5] * r_sh[5];
+    re += b[6] * r_sh[6];
+    re += b[7] * r_sh[7];
+    re += b[8] * r_sh[8];
+    re += b[9] * r_sh[9];
+    re += b[10] * r_sh[10];
+    re += b[11] * r_sh[11];
+    re += b[12] * r_sh[12];
+    re += b[13] * r_sh[13];
+    re += b[14] * r_sh[14];
+    re += b[15] * r_sh[15]; 
+
+    gr += b[0] * g_sh[0];
+    gr += b[1] * g_sh[1];
+    gr += b[2] * g_sh[2];
+    gr += b[3] * g_sh[3];
+    gr += b[4] * g_sh[4];
+    gr += b[5] * g_sh[5];
+    gr += b[6] * g_sh[6];
+    gr += b[7] * g_sh[7];
+    gr += b[8] * g_sh[8];
+    gr += b[9] * g_sh[9];
+    gr += b[10] * g_sh[10];
+    gr += b[11] * g_sh[11];
+    gr += b[12] * g_sh[12];
+    gr += b[13] * g_sh[13];
+    gr += b[14] * g_sh[14];
+    gr += b[15] * g_sh[15];
+
+    bl += b[0] * b_sh[0];
+    bl += b[1] * b_sh[1];
+    bl += b[2] * b_sh[2];
+    bl += b[3] * b_sh[3];
+    bl += b[4] * b_sh[4];
+    bl += b[5] * b_sh[5];
+    bl += b[6] * b_sh[6];
+    bl += b[7] * b_sh[7];
+    bl += b[8] * b_sh[8];
+    bl += b[9] * b_sh[9];
+    bl += b[10] * b_sh[10];
+    bl += b[11] * b_sh[11];
+    bl += b[12] * b_sh[12];
+    bl += b[13] * b_sh[13];
+    bl += b[14] * b_sh[14];
+    bl += b[15] * b_sh[15];
 
     return vec3(0.5f, 0.5f, 0.5f) + vec3(re, gr, bl);
 }
@@ -99,26 +145,63 @@ vec3 ComputeRadianceFromSH(const vec3 v, const float r_sh[16], const float g_sh[
 
 void main() {
     // SH 데이터 로드
-    int pointIndex = gl_VertexID;
-    int baseIndex = pointIndex * SH_SIZE;
-
     float r_sh[16];
     float g_sh[16];
     float b_sh[16];
 
-    r_sh[0] = texelFetch(u_shBuffer, baseIndex + 0).r;
-    g_sh[0] = texelFetch(u_shBuffer, baseIndex + 1).r;
-    b_sh[0] = texelFetch(u_shBuffer, baseIndex + 2).r;
+    // 첫 번째 계수는 직접 할당
+    r_sh[0] = shData[0];
+    g_sh[0] = shData[1];
+    b_sh[0] = shData[2];
 
-    for(int i=1; i<16; i++) {
-        r_sh[i] = texelFetch(u_shBuffer, baseIndex + i + 3).r;
-    }
-    for(int i=1; i<16; i++) {
-        g_sh[i] = texelFetch(u_shBuffer, baseIndex + i + 18).r;
-    }
-    for(int i=1; i<16; i++) {
-        b_sh[i] = texelFetch(u_shBuffer, baseIndex + i + 33).r;
-    }
+    r_sh[1] = shData[3];
+    r_sh[2] = shData[4];
+    r_sh[3] = shData[5];
+    r_sh[4] = shData[6];
+    r_sh[5] = shData[7];
+    r_sh[6] = shData[8];
+    r_sh[7] = shData[9];
+    r_sh[8] = shData[10];
+    r_sh[9] = shData[11];
+    r_sh[10] = shData[12];
+    r_sh[11] = shData[13];
+    r_sh[12] = shData[14];
+    r_sh[13] = shData[15];
+    r_sh[14] = shData[16];
+    r_sh[15] = shData[17];
+
+    g_sh[1] = shData[18];
+    g_sh[2] = shData[19];
+    g_sh[3] = shData[20];
+    g_sh[4] = shData[21];
+    g_sh[5] = shData[22];
+    g_sh[6] = shData[23];
+    g_sh[7] = shData[24];
+    g_sh[8] = shData[25];
+    g_sh[9] = shData[26];
+    g_sh[10] = shData[27];
+    g_sh[11] = shData[28];
+    g_sh[12] = shData[29];
+    g_sh[13] = shData[30];
+    g_sh[14] = shData[31];
+    g_sh[15] = shData[32];
+
+    b_sh[1] = shData[33];
+    b_sh[2] = shData[34];
+    b_sh[3] = shData[35];
+    b_sh[4] = shData[36];
+    b_sh[5] = shData[37];
+    b_sh[6] = shData[38];
+    b_sh[7] = shData[39];
+    b_sh[8] = shData[40];
+    b_sh[9] = shData[41];
+    b_sh[10] = shData[42];
+    b_sh[11] = shData[43];
+    b_sh[12] = shData[44];
+    b_sh[13] = shData[45];
+    b_sh[14] = shData[46];
+    b_sh[15] = shData[47];
+
 
     vec4 t = viewMat * vec4(aPos, 1.0);
 
@@ -154,17 +237,17 @@ void main() {
     mat3 cov3D = R * scalemat * transpose(R);
 
     // 3D Covariance matrix to 2D Covariance matrix
-    mat3 W = mat3(viewMat);
-    mat2 cov2D = mat2(J * W * cov3D * transpose(J * W));
-    cov2D[0][0] += 0.3f;
-    cov2D[1][1] += 0.3f;
-    geom_cov2D = vec4(cov2D[0], cov2D[1]);
+    // mat3 W = mat3(viewMat);
+    // mat2 cov2D = mat2(J * W * cov3D * transpose(J * W));
+    // cov2D[0][0] += 0.3f;
+    // cov2D[1][1] += 0.3f;
+    // geom_cov2D = vec4(cov2D[0], cov2D[1]);
 
     // 3D Position to 2D Position
     vec4 p4 = projMat * t;
-    geom_pos = vec2(p4.x / p4.w, p4.y / p4.w);
-    geom_pos.x = 0.5f * (width + (geom_pos.x * width) + (2.0f * x0));
-    geom_pos.y = 0.5f * (height + (geom_pos.y * height) + (2.0f * y0));
+    // geom_pos = vec2(p4.x / p4.w, p4.y / p4.w);
+    // geom_pos.x = 0.5f * (width + (geom_pos.x * width) + (2.0f * x0));
+    // geom_pos.y = 0.5f * (height + (geom_pos.y * height) + (2.0f * y0));
 
     // compute radiance from sh;
     vec3 v = normalize(aPos - eye);

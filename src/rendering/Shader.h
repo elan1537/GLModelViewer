@@ -7,6 +7,7 @@ class Shader
 {
 public:
     Shader(const char *vertexPath, const char *fragmentPath, const char *geometryPath = nullptr);
+    Shader(const char *computePath);
 
     void use();
     void setBool(const std::string &name, bool value) const
@@ -17,6 +18,10 @@ public:
     void setInt(const std::string &name, int value) const
     {
         glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+    }
+    void setUint32(const std::string &name, uint32_t value) const
+    {
+        glUniform1ui(glGetUniformLocation(ID, name.c_str()), value);
     }
     // ------------------------------------------------------------------------
     void setFloat(const std::string &name, float value) const

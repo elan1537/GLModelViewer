@@ -212,6 +212,7 @@ void Application::Run()
             // 첫 번째 뷰포트의 카메라 설정 (예: 현재 m_Camera)
             mat4 proj = Perspective(30.0f, aspect_top, 0.01f, 100.0f);
 
+            m_GaussianRenderer->Sort(m_Camera->pose, proj, vec2(0.01f, 100.0f));
             m_GaussianRenderer->Draw(m_Camera->pose, proj, vec4(0, WINDOW_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT), vec2(0.01f, 100.0f));
             m_CubeRenderer->Draw(mat4(1.0f), m_Camera->pose, proj);
 

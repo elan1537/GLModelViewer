@@ -107,6 +107,31 @@ Shader::Shader(const char *vertexPath, const char *fragmentPath, const char *geo
     }
 }
 
+Shader::Shader(const char *computePath)
+{
+    std::string computeCode;
+    std::ifstream cShaderFile;
+    std::stringstream cShaderStream;
+
+    cShaderFile.open(computePath);
+    cShaderStream << cShaderFile.rdbuf();
+    computeCode = cShaderStream.str();
+
+    const char *cShaderCode = computeCode.c_str();
+
+    GLuint compute = glCreateShader(GL_COMPUTE_SHADER);
+    glShaderSource(compute, 1, &cShaderCode, NULL);
+    glCompileShader(compute);
+    checkCompileErrors(compute, "COMPUTE");
+
+    ID = glCreateProgram();
+    glAttachShader(ID, compute);
+    glLinkProgram(ID);
+    checkCompileErrors(ID, "PROGRAM");
+
+    glDeleteShader(compute);
+}
+
 void Shader::use()
 {
     glUseProgram(ID);
